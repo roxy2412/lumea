@@ -49,3 +49,5 @@ npm run deploy
 La configuración está en `wrangler.jsonc`. No deben subirse `.dev.vars`,
 contraseñas, sesiones ni carpetas internas de Wrangler; ya están excluidas por
 `.gitignore`.
+
+Actualización para publicar LUMEA
