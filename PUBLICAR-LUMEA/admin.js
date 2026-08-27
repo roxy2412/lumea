@@ -204,12 +204,13 @@
   }
 
   function inventoryAvailable(product, variant, measure) {
+    if (variant.unlimitedInventory) return Infinity;
+    if (variant.stock !== "" && variant.stock != null) return Math.max(0, Number(variant.stock) || 0) * measure.amount;
     const sharedInventory = product.inventoryAvailable !== "" && product.inventoryAvailable != null
       ? Number(product.inventoryAvailable)
       : NaN;
     if (Number.isFinite(sharedInventory)) return Math.max(0, sharedInventory);
-    if (variant.stock === "" || variant.stock == null) return Infinity;
-    return Math.max(0, Number(variant.stock) || 0) * measure.amount;
+    return Infinity;
   }
 
   function inventoryStatus(available, measure) {
@@ -398,8 +399,8 @@
           <img class="image-preview wide" id="productImagePreview" src="${value.image}" alt="Vista previa" />
           <label class="field wide"><input id="productActive" type="checkbox" ${value.active ? "checked" : ""} /> Visible en la tienda</label>
         </div>
-        <h3>Presentaciones, precios y cantidades</h3><p>El precio se calcula automáticamente. Deja el precio manual vacío para usar la fórmula; escribe uno solo si deseas sustituir el resultado. Las existencias vacías significan disponibilidad ilimitada.</p>
-        <div class="variant-legend"><span>Presentación</span><span>Gramos / ml</span><span>BioAlei MXN</span><span>Precio manual CUP</span><span>Existencias</span><span></span></div>
+        <h3>Presentaciones, precios e inventario</h3><p>El precio se calcula automáticamente. En cantidad inicial escribe cuántas presentaciones hay disponibles. Si el producto no tiene límite, marca “Sin límite”.</p>
+        <div class="variant-legend"><span>Presentación</span><span>Gramos / ml</span><span>Costo MXN</span><span>Precio CUP</span><span>Cantidad inicial</span><span>Sin límite</span><span></span></div>
         <div id="variantRows">${value.variants.map(variantRow).join("")}</div>
         <button type="button" class="admin-secondary" data-variant-add>＋ Agregar presentación</button>
         <div class="checkout-nav"><button type="button" class="secondary-btn" data-admin-close>Cancelar</button><button class="admin-primary">Guardar producto</button></div>
@@ -459,11 +460,13 @@
     const publicPrice = Number(variant.publicPriceCup) > 0 ? Number(variant.publicPriceCup) : "";
     const calculatedPrice = Store.price({ ...variant, publicPriceCup: 0 });
     const stock = variant.stock == null ? "" : Number(variant.stock);
+    const unlimited = variant.unlimitedInventory || variant.stock == null;
     return `<div class="variant-editor"><input class="variant-label" value="${variant.label}" placeholder="Nombre/peso" required />
       <input class="variant-weight" type="number" min="1" step="1" value="${shippingWeight}" title="Gramos o ml para calcular el envío" required />
       <input class="variant-mxn" type="number" min="0" step=".01" value="${supplierPrice}" title="Precio BioAlei en MXN" required />
       <input class="variant-public-price" type="number" min="1" step="1" value="${publicPrice}" placeholder="${calculatedPrice}" title="Precio público manual en CUP; vacío usa el cálculo automático" />
-      <input class="variant-stock" type="number" min="0" step="1" value="${stock}" placeholder="∞" title="Existencias disponibles; vacío significa ilimitado" />
+      <input class="variant-stock" type="number" min="0" step="1" value="${stock}" placeholder="0" title="Cantidad inicial disponible" ${unlimited ? "disabled" : ""} />
+      <label class="variant-unlimited-wrap"><input class="variant-unlimited" type="checkbox" ${unlimited ? "checked" : ""} /> Sí</label>
       <button type="button" data-variant-remove>×</button></div>`;
   }
 
@@ -1160,6 +1163,15 @@
       adminState.inventoryCategory = event.target.value;
       renderInventoryResults();
     }
+    if (event.target.matches(".variant-unlimited")) {
+      const row = event.target.closest(".variant-editor");
+      const stockInput = row?.querySelector(".variant-stock");
+      if (stockInput) {
+        stockInput.disabled = event.target.checked;
+        if (event.target.checked) stockInput.value = "";
+        else stockInput.focus();
+      }
+    }
     if (event.target.id === "selectAllProducts") {
       document.querySelectorAll(".product-check").forEach((checkbox) => {
         checkbox.checked = event.target.checked;
@@ -1333,15 +1345,22 @@
   async function saveProduct(form) {
     const products = Store.getProducts();
     const existing = products.find((product) => product.id === form.dataset.productId);
-    const variants = [...document.querySelectorAll(".variant-editor")].map((row, index) => ({
-      ...(existing?.variants?.[index] || {}),
-      label: row.querySelector(".variant-label").value.trim(),
-      shippingWeightGrams: Number(row.querySelector(".variant-weight").value),
-      mxn: Number(row.querySelector(".variant-mxn").value),
-      bioaleiPriceMxn: Number(row.querySelector(".variant-mxn").value),
-      publicPriceCup: Number(row.querySelector(".variant-public-price").value),
-      stock: row.querySelector(".variant-stock").value === "" ? null : Number(row.querySelector(".variant-stock").value)
-    }));
+    const variants = [...document.querySelectorAll(".variant-editor")].map((row, index) => {
+      const unlimited = row.querySelector(".variant-unlimited")?.checked;
+      const stockValue = row.querySelector(".variant-stock").value;
+      const stock = unlimited ? null : Number(stockValue || 0);
+      return {
+        ...(existing?.variants?.[index] || {}),
+        label: row.querySelector(".variant-label").value.trim(),
+        shippingWeightGrams: Number(row.querySelector(".variant-weight").value),
+        mxn: Number(row.querySelector(".variant-mxn").value),
+        bioaleiPriceMxn: Number(row.querySelector(".variant-mxn").value),
+        publicPriceCup: Number(row.querySelector(".variant-public-price").value),
+        stock,
+        initialStock: stock,
+        unlimitedInventory: !!unlimited
+      };
+    });
     const value = {
       ...(existing || {}),
       id: existing?.id || form.dataset.pendingProductId || slug(document.getElementById("productName").value),
