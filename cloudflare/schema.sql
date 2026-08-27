@@ -21,6 +21,17 @@ CREATE TABLE IF NOT EXISTS subscribers (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS reviews (
+  id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  updated_at TEXT,
+  name TEXT NOT NULL,
+  city TEXT,
+  rating INTEGER NOT NULL DEFAULT 5,
+  comment TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
   created_at TEXT NOT NULL,
@@ -47,3 +58,4 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 CREATE INDEX IF NOT EXISTS orders_archived_idx ON orders(archived);
+CREATE INDEX IF NOT EXISTS reviews_status_created_at_idx ON reviews(status, created_at DESC);

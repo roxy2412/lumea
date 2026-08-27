@@ -5,6 +5,7 @@
   const state = {
     products: Store.getProducts(),
     settings: Store.getSettings(),
+    reviews: Store.getPublishedReviews(),
     cart: Store.getCart(),
     family: "Todos",
     subcategory: "",
@@ -49,6 +50,14 @@
     return "";
   };
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
   function renderCommercialInfo() {
     const settings = state.settings;
     const whatsapp = String(settings.whatsapp || "+5353691859");
@@ -62,6 +71,19 @@
     if ($("#commerceDeposit")) $("#commerceDeposit").textContent = settings.depositTerms;
     if ($("#commerceCancellation")) $("#commerceCancellation").textContent = settings.cancellationPolicy;
     if ($("#commercePrivacy")) $("#commercePrivacy").textContent = settings.privacyPolicy;
+  }
+
+  function renderReviews() {
+    const list = $("#reviewList");
+    if (!list) return;
+    state.reviews = Store.getPublishedReviews();
+    const reviews = state.reviews.slice(0, 6);
+    list.innerHTML = reviews.length ? reviews.map((review) => {
+      const rating = Math.min(5, Math.max(1, Number(review.rating) || 5));
+      return `<article class="review-card"><div class="stars">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>
+        <blockquote>“${escapeHtml(review.comment)}”</blockquote>
+        <footer>${escapeHtml(review.name)}${review.city ? ` · ${escapeHtml(review.city)}` : ""}</footer></article>`;
+    }).join("") : `<div class="review-empty"><b>Aún no hay opiniones publicadas.</b><br />Cuando LUMEA apruebe las primeras experiencias de clientes, aparecerán aquí para que otros compradores puedan sentirse más seguros.</div>`;
   }
 
   function filteredProducts() {
@@ -323,7 +345,7 @@
       const dueNow = data.payment ? paymentAmount() : 0;
       const balance = Math.max(0, total - dueNow);
       body = `${checkoutHeader("Forma de pago")}
-        <div class="payment-intro"><b>Solicita tu pedido con un anticipo del 20%</b><span>El anticipo es de ${Store.money(deposit)} sobre un total de ${Store.money(total)}.</span></div>
+        <div class="payment-intro"><b>Solicita tu pedido con un anticipo del 20%</b><span>El anticipo es de ${Store.money(deposit)} sobre un total de ${Store.money(total)}. Ese total ya incluye productos${deliveryFee() ? " y entrega a domicilio" : ""}.</span></div>
         <div class="choice-grid">
           <button class="choice ${data.payment === "card" ? "selected" : ""}" data-payment="card"><span>▣</span><b>Tarjeta</b><small>Paga el pedido completo o reserva con el 20%.</small></button>
           <button class="choice ${data.payment === "cash" ? "selected" : ""}" data-payment="cash"><span>◉</span><b>Efectivo</b><small>Abona el 20% por tarjeta y paga el saldo en efectivo.</small></button>
@@ -348,7 +370,7 @@
           }).join("")}
           <div class="summary-row"><span>Productos</span><b>${Store.money(cartSubtotal())}</b></div>
           <div class="summary-row"><span>${data.fulfillment === "delivery" ? `Entrega · ${municipality?.name || ""}` : "Recogida"}</span><b>${fee ? Store.money(fee) : "Sin costo"}</b></div>
-          <div class="summary-row total"><span>Total</span><b>${Store.money(cartSubtotal() + fee)}</b></div>
+          <div class="summary-row total"><span>Total del pedido</span><b>${Store.money(cartSubtotal() + fee)}</b></div>
           <div class="summary-row"><span>Pago enviado ahora</span><b>${Store.money(paymentAmount())}</b></div>
           ${checkoutTotal() - paymentAmount() > 0 ? `<div class="summary-row"><span>Saldo pendiente</span><b>${Store.money(checkoutTotal() - paymentAmount())}</b></div>` : ""}
         </div>
@@ -460,7 +482,7 @@
       total
     };
     try {
-      await Store.saveOrder(order);
+      Object.assign(order, await Store.saveOrder(order));
     } catch (error) {
       toast(error.message || "No pudimos registrar el pedido. Intenta nuevamente.");
       return;
@@ -476,7 +498,7 @@
       "",
       ...order.lines.map((line) => `${line.qty} × ${line.name} (${line.variant}) · ${Store.money(line.unitPrice * line.qty)}`),
       "",
-      `Total: ${Store.money(order.total)}`
+      `Total del pedido: ${Store.money(order.total)}`
     ].join("\n");
     const orderEmailHref = `mailto:${state.settings.ordersEmail}?subject=${encodeURIComponent(`Pedido LUMEA ${order.id}`)}&body=${encodeURIComponent(orderEmailBody)}`;
     state.cart = [];
@@ -484,7 +506,7 @@
     renderCart();
     $("#checkoutContent").innerHTML = `<div class="checkout-shell"><div class="order-success"><span>✓</span><h2>Gracias por tu pedido.</h2>
       <p>Guarda este número para consultar o cancelar tu pedido durante las próximas ${state.settings.cancelHours} horas.</p>
-      <div class="order-number">${order.id}</div><p><b>Total: ${Store.money(order.total)}</b><br />Pago enviado para verificar: ${Store.money(order.paymentAmount)}${order.balanceDue ? `<br />Saldo pendiente: ${Store.money(order.balanceDue)}` : ""}</p>
+      <div class="order-number">${order.id}</div><p><b>Total del pedido: ${Store.money(order.total)}</b><br /><small>Incluye productos${order.deliveryFee ? " + entrega a domicilio" : ""}.</small><br />Pago enviado para verificar: ${Store.money(order.paymentAmount)}${order.balanceDue ? `<br />Saldo pendiente: ${Store.money(order.balanceDue)}` : ""}</p>
       <a class="secondary-btn" href="${orderEmailHref}">Enviar copia a LUMEA por correo</a>
       <button class="primary-btn" data-order-done>Volver a la tienda</button></div></div>`;
   }
@@ -678,14 +700,32 @@
       toast("No pudimos guardar tu correo. Intenta nuevamente.");
     }
   });
+  $("#reviewForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await Store.saveReview({
+        name: $("#reviewName").value,
+        city: $("#reviewCity").value,
+        rating: $("#reviewRating").value,
+        comment: $("#reviewComment").value
+      });
+      event.target.reset();
+      renderReviews();
+      toast("Gracias. Tu opinión se revisará antes de publicarse.");
+    } catch (error) {
+      toast(error.message || "No pudimos guardar tu opinión. Intenta nuevamente.");
+    }
+  });
   window.addEventListener("lumea:data", () => {
     state.settings = Store.getSettings();
     state.products = Store.getProducts();
-    renderTaxonomy(); renderProducts(); renderCart(); renderCommercialInfo();
+    state.reviews = Store.getPublishedReviews();
+    renderTaxonomy(); renderProducts(); renderCart(); renderCommercialInfo(); renderReviews();
   });
 
   $("#year").textContent = new Date().getFullYear();
   renderCommercialInfo();
+  renderReviews();
   renderTaxonomy();
   renderProducts();
   renderCart();

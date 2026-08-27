@@ -6,6 +6,7 @@
     cart: "lumea_v3_cart",
     subscribers: "lumea_v3_subscribers",
     emailTemplates: "lumea_v1_email_templates",
+    reviews: "lumea_v1_reviews",
     session: "lumea_v3_admin_session"
   };
 
@@ -35,7 +36,7 @@
     whatsapp: "+5353691859",
     preparationTime: "1 a 2 días",
     deliveryTime: "7 a 10 días después de la preparación",
-    depositTerms: "Para solicitar el pedido se abona el 20% del total mediante tarjeta y se adjunta el comprobante. El saldo se paga según la modalidad seleccionada.",
+    depositTerms: "Para solicitar el pedido se abona el 20% del total, incluyendo productos y entrega si aplica, mediante tarjeta y se adjunta el comprobante. El saldo se paga según la modalidad seleccionada.",
     cancellationPolicy: "Puedes cancelar durante las primeras 24 horas y recibir la devolución del anticipo. Después de ese plazo puedes cancelar, pero el anticipo no es reembolsable.",
     privacyPolicy: "Usamos tus datos únicamente para procesar el pedido, coordinar la entrega y comunicarnos contigo. No vendemos ni compartimos tu información con terceros ajenos al servicio.",
     pickupAddress: "Punto de recogida LUMEA, La Habana (dirección a confirmar)",
@@ -69,20 +70,20 @@
     {
       id: "gracias-pedido",
       name: "Gracias por tu pedido",
-      subject: "Gracias por tu pedido {{pedido}}",
-      body: "Hola {{nombre}},\n\nGracias por comprar en LUMEA. Recibimos tu pedido {{pedido}}.\n\nIncluye:\n{{productos}}\n\nTotal: {{total}}\n\nTe avisaremos cuando esté listo."
+      subject: "Confirmamos tu pedido {{pedido}} en LUMEA",
+      body: "Hola {{nombre}},\n\n¡Gracias por elegir LUMEA!\n\nHemos recibido correctamente tu pedido {{pedido}} y comenzaremos a prepararlo con mucho cuidado.\n\nResumen de tu compra\n\n{{productos}}\n\nEntrega: {{entrega}}\nPago enviado: {{pago}}\nSaldo pendiente: {{saldo}}\nTotal confirmado: {{total}}\n\nTe mantendremos informado durante cada etapa del proceso.\n\nCon cariño,\nEquipo LUMEA\nCosmética natural"
     },
     {
       id: "pedido-en-camino",
       name: "Pedido en camino",
-      subject: "Tu pedido {{pedido}} está en camino",
-      body: "Hola {{nombre}},\n\nTu pedido {{pedido}} ya está en camino.\n\nIncluye:\n{{productos}}\n\nEstado: {{estado}}."
+      subject: "Tu pedido {{pedido}} ya está en camino hacia Cuba",
+      body: "Hola {{nombre}},\n\nTenemos buenas noticias: tu pedido {{pedido}} ya está en camino hacia Cuba.\n\nProductos incluidos\n\n{{productos}}\n\nEstado actual: {{estado}}\nTotal confirmado: {{total}}\nSaldo pendiente: {{saldo}}\n\nEstamos dando seguimiento a tu envío. Te enviaremos una nueva notificación cuando llegue a La Habana y esté listo para su entrega.\n\nGracias por confiar en LUMEA.\n\nCon cariño,\nEquipo LUMEA\nCosmética natural"
     },
     {
       id: "pedido-listo",
       name: "Pedido listo para entrega",
-      subject: "Tu pedido {{pedido}} está listo",
-      body: "Hola {{nombre}},\n\nTu pedido {{pedido}} está listo para entrega.\n\nIncluye:\n{{productos}}\n\nTotal: {{total}}."
+      subject: "Tu pedido {{pedido}} ya está listo para entrega",
+      body: "Hola {{nombre}},\n\n¡Tu pedido ya llegó!\n\nEl pedido {{pedido}} se encuentra en La Habana y está listo para coordinar su entrega.\n\nProductos incluidos\n\n{{productos}}\n\nEntrega: {{entrega}}\nTotal confirmado: {{total}}\nSaldo pendiente: {{saldo}}\n\nSi ya recibiste instrucciones, por favor ten a la mano el número de pedido.\n\nGracias por permitirnos ser parte de tu emprendimiento.\n\nCon cariño,\nEquipo LUMEA\nCosmética natural"
     }
   ];
 
@@ -123,6 +124,23 @@
       write(KEYS.subscribers, subscribers);
     }
     return true;
+  }
+
+  function normalizeReview(review = {}) {
+    return {
+      id: String(review.id || `REV-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`),
+      createdAt: review.createdAt || new Date().toISOString(),
+      updatedAt: review.updatedAt || "",
+      name: String(review.name || "").trim().slice(0, 40),
+      city: String(review.city || "").trim().slice(0, 45),
+      rating: Math.min(5, Math.max(1, Number(review.rating) || 5)),
+      comment: String(review.comment || "").trim().slice(0, 500),
+      status: ["pending", "published", "hidden"].includes(review.status) ? review.status : "pending"
+    };
+  }
+
+  function sortReviews(reviews) {
+    return [...reviews].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   }
 
   async function api(path, options = {}) {
@@ -244,6 +262,7 @@
       catalogHydratedFromServer = true;
       write(KEYS.products, Array.isArray(data.products) ? data.products : []);
       if (data.settings) write(KEYS.settings, data.settings);
+      if (Array.isArray(data.reviews)) write(KEYS.reviews, data.reviews.map(normalizeReview));
       return true;
     } catch {
       return false;
@@ -378,6 +397,7 @@
       const localSettings = getSettings();
       const localTemplates = read(KEYS.emailTemplates, defaultEmailTemplates);
       const localSubscribers = read(KEYS.subscribers, []);
+      const localReviews = read(KEYS.reviews, []);
 
       if (data.products?.length) write(KEYS.products, data.products);
       else await persistRemote(KEYS.products, localProducts, "/api/admin/products");
@@ -385,11 +405,29 @@
       if (data.settings) write(KEYS.settings, data.settings);
       else await persistRemote(KEYS.settings, localSettings, "/api/admin/settings");
 
-      if (data.emailTemplates?.length) write(KEYS.emailTemplates, data.emailTemplates);
+      if (data.emailTemplates?.length) {
+        const legacyMarkers = [
+          "Gracias por comprar en LUMEA. Recibimos tu pedido",
+          "Tu pedido {{pedido}} ya está en camino.",
+          "Tu pedido {{pedido}} está listo para entrega."
+        ];
+        let upgraded = false;
+        const templates = data.emailTemplates.map((template) => {
+          const replacement = defaultEmailTemplates.find((item) => item.id === template.id);
+          if (!replacement || !legacyMarkers.some((marker) => String(template.body || "").includes(marker))) return template;
+          upgraded = true;
+          return replacement;
+        });
+        write(KEYS.emailTemplates, templates);
+        if (upgraded) await persistRemote(KEYS.emailTemplates, templates, "/api/admin/email-templates");
+      }
       else await persistRemote(KEYS.emailTemplates, localTemplates, "/api/admin/email-templates");
 
       if (data.subscribers?.length) write(KEYS.subscribers, data.subscribers);
       else if (localSubscribers.length) await persistRemote(KEYS.subscribers, localSubscribers, "/api/admin/subscribers");
+
+      if (Array.isArray(data.reviews)) write(KEYS.reviews, data.reviews.map(normalizeReview));
+      else if (localReviews.length) write(KEYS.reviews, localReviews.map(normalizeReview));
 
       write(KEYS.orders, data.orders || []);
       return true;
@@ -445,6 +483,52 @@
     setSubscribers: (value) => persistRemote(KEYS.subscribers, value, "/api/admin/subscribers"),
     getEmailTemplates: () => read(KEYS.emailTemplates, defaultEmailTemplates),
     setEmailTemplates: (value) => persistRemote(KEYS.emailTemplates, value, "/api/admin/email-templates"),
+    getReviews: () => sortReviews(read(KEYS.reviews, []).map(normalizeReview)),
+    getPublishedReviews: () => sortReviews(read(KEYS.reviews, []).map(normalizeReview).filter((review) => review.status === "published")),
+    async saveReview(review) {
+      const normalized = normalizeReview(review);
+      if (!normalized.name || !normalized.comment) throw new Error("Completa tu nombre y opinión.");
+      let saved = normalized;
+      if (apiEnabled) {
+        const result = await api("/api/reviews", {
+          method: "POST",
+          body: JSON.stringify(normalized)
+        });
+        saved = normalizeReview(result.review || normalized);
+      }
+      const reviews = read(KEYS.reviews, []);
+      reviews.unshift(saved);
+      write(KEYS.reviews, sortReviews(reviews.map(normalizeReview)));
+      return saved;
+    },
+    async saveAdminReview(review) {
+      const saved = normalizeReview({ ...review, updatedAt: new Date().toISOString() });
+      if (apiEnabled) {
+        const result = await api(`/api/admin/reviews/${encodeURIComponent(saved.id)}`, {
+          method: "PUT",
+          body: JSON.stringify(saved)
+        });
+        Object.assign(saved, normalizeReview(result.review || saved));
+      }
+      const reviews = read(KEYS.reviews, []);
+      const index = reviews.findIndex((item) => item.id === saved.id);
+      if (index >= 0) reviews[index] = saved;
+      else reviews.unshift(saved);
+      write(KEYS.reviews, sortReviews(reviews.map(normalizeReview)));
+      return saved;
+    },
+    async deleteReview(reviewId) {
+      if (apiEnabled) await api(`/api/admin/reviews/${encodeURIComponent(reviewId)}`, { method: "DELETE" });
+      write(KEYS.reviews, read(KEYS.reviews, []).filter((review) => review.id !== reviewId));
+      return true;
+    },
+    async sendOrderEmail(orderId, templateId) {
+      if (!apiEnabled) throw new Error("El envío de correos requiere conexión con el servidor.");
+      return api(`/api/admin/orders/${encodeURIComponent(orderId)}/email`, {
+        method: "POST",
+        body: JSON.stringify({ templateId })
+      });
+    },
     isAdmin: () => sessionStorage.getItem(KEYS.session) === "active",
     hasAdmin: () => true,
     async login(user, password) {

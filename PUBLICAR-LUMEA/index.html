@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/lumea-logo-icono.png" />
     <title>LUMEA · Cosmética natural e insumos</title>
-    <link rel="stylesheet" href="tienda.css?v=20260827a" />
+    <link rel="stylesheet" href="tienda.css?v=20260827b" />
   </head>
   <body>
     <div id="storeApp">
@@ -61,6 +61,32 @@
           <article><b>Seguimiento claro</b><span>Conservas tu número de pedido para consultar estado, entrega o cancelación.</span></article>
         </section>
 
+        <section class="reviews-section" id="opiniones" data-page="home">
+          <div class="reviews-copy">
+            <p class="eyebrow">OPINIONES DE CLIENTES</p>
+            <h2>Comprar con más confianza.</h2>
+            <p>Lee experiencias reales y deja la tuya. Para proteger la comunidad, LUMEA revisa las opiniones antes de publicarlas.</p>
+          </div>
+          <div class="reviews-panel">
+            <div class="review-list" id="reviewList"></div>
+            <form class="review-form" id="reviewForm">
+              <b>Deja tu opinión</b>
+              <div class="review-form-grid">
+                <label>Nombre<input id="reviewName" maxlength="40" required placeholder="Tu nombre" /></label>
+                <label>Municipio o ciudad<input id="reviewCity" maxlength="45" placeholder="Opcional" /></label>
+                <label>Calificación<select id="reviewRating" required>
+                  <option value="5">★★★★★ Excelente</option>
+                  <option value="4">★★★★ Muy buena</option>
+                  <option value="3">★★★ Buena</option>
+                </select></label>
+              </div>
+              <label>Opinión<textarea id="reviewComment" rows="3" maxlength="500" required placeholder="Cuéntanos cómo fue tu experiencia con LUMEA"></textarea></label>
+              <small>Se publicará después de revisión para mantener un espacio confiable.</small>
+              <button class="primary-btn">Enviar opinión →</button>
+            </form>
+          </div>
+        </section>
+
         <section class="visual-showcase" data-page="home" aria-label="Inspiración LUMEA">
           <div class="visual-heading"><p class="eyebrow">CREA CON LUMEA</p><h2>Insumos para cada idea.</h2></div>
           <div class="visual-grid">
@@ -110,7 +136,7 @@
             <article><span>01</span><h3>WhatsApp</h3><p>Escríbenos al <a id="commerceWhatsapp" href="https://wa.me/5353691859" target="_blank" rel="noopener">+53 5369 1859</a> para recibir atención.</p></article>
             <article><span>02</span><h3>Preparación</h3><p>El pedido se prepara en un plazo aproximado de <span id="commercePreparation">1 a 2 días</span>.</p></article>
             <article><span>03</span><h3>Entrega</h3><p>El tiempo estimado de entrega es de <span id="commerceDelivery">7 a 10 días después de la preparación</span>.</p></article>
-            <article><span>04</span><h3>Anticipo</h3><p id="commerceDeposit">Para solicitar el pedido se abona el 20% del total mediante tarjeta y se adjunta el comprobante. El saldo se paga según la modalidad seleccionada.</p></article>
+            <article><span>04</span><h3>Anticipo</h3><p id="commerceDeposit">Para solicitar el pedido se abona el 20% del total, incluyendo productos y entrega si aplica, mediante tarjeta y se adjunta el comprobante. El saldo se paga según la modalidad seleccionada.</p></article>
             <article><span>05</span><h3>Cancelación</h3><p id="commerceCancellation">Puedes cancelar durante las primeras 24 horas y recibir la devolución del anticipo. Después de ese plazo puedes cancelar, pero el anticipo no es reembolsable.</p></article>
             <article><span>06</span><h3>Privacidad</h3><p id="commercePrivacy">Usamos tus datos únicamente para procesar el pedido, coordinar la entrega y comunicarnos contigo. No vendemos ni compartimos tu información con terceros ajenos al servicio.</p></article>
           </div>
@@ -138,7 +164,7 @@
       <header><div><p class="eyebrow">TU SELECCIÓN</p><h2>Bolsa <span id="drawerCount">(0)</span></h2></div><button id="cartClose" aria-label="Cerrar carrito">×</button></header>
       <div class="cart-lines" id="cartLines"></div>
       <div class="cart-empty" id="cartEmpty"><b>♡</b><h3>Tu bolsa está esperando</h3><p>Agrega algo bonito para comenzar.</p></div>
-      <div class="cart-total" id="cartTotalBox"><div><span>Productos</span><b id="cartSubtotal">0 CUP</b></div><small>La entrega local se calcula al elegir el municipio.</small><button class="primary-btn" id="checkoutOpen">Continuar pedido →</button></div>
+      <div class="cart-total" id="cartTotalBox"><div><span>Productos</span><b id="cartSubtotal">0 CUP</b></div><small>Al finalizar, el total será productos + entrega si eliges domicilio.</small><button class="primary-btn" id="checkoutOpen">Continuar pedido →</button></div>
     </aside>
 
     <dialog id="productDialog" class="modal product-modal"><button class="close" data-close="productDialog" aria-label="Cerrar">×</button><div id="productDetail"></div></dialog>
@@ -152,11 +178,11 @@
     <dialog id="adminProofDialog" class="modal proof-modal"><button class="close" data-close="adminProofDialog" aria-label="Cerrar">×</button><div class="proof-dialog-content" id="adminProofContent"></div></dialog>
     <div class="toast" id="toast" popover="manual"></div>
 
-    <script src="taxonomy.js?v=20260827a"></script>
-    <script src="catalog-manual-products.js?v=20260827a"></script>
+    <script src="taxonomy.js?v=20260827b"></script>
+    <script src="catalog-manual-products.js?v=20260827b"></script>
     <script src="product-descriptions.js?v=20260630b"></script>
-    <script src="store.js?v=20260827a"></script>
-    <script src="tienda.js?v=20260827a"></script>
-    <script src="admin.js?v=20260827a"></script>
+    <script src="store.js?v=20260827b"></script>
+    <script src="tienda.js?v=20260827b"></script>
+    <script src="admin.js?v=20260827b"></script>
   </body>
 </html>

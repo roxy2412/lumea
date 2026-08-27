@@ -71,7 +71,7 @@
     const labels = {
       dashboard: "Resumen", products: "Productos", categories: "Categorías", orders: "Pedidos",
       delivery: "Municipios y entregas", bank: "Cuenta bancaria",
-      campaigns: "Correos masivos", settings: "Configuración"
+      campaigns: "Correos masivos", reviews: "Opiniones", settings: "Configuración"
     };
     app.innerHTML = `<div class="admin-shell"><aside class="admin-sidebar">
       <img src="assets/lumea-logo-nuevo.webp" alt="LUMEA" />
@@ -99,6 +99,7 @@
       delivery: renderDelivery,
       bank: renderBank,
       campaigns: renderCampaigns,
+      reviews: renderReviews,
       settings: renderSettings
     }[adminState.tab] || renderDashboard)(main);
   }
@@ -106,6 +107,7 @@
   function renderDashboard(main) {
     const products = Store.getProducts();
     const orders = Store.getOrders();
+    const reviews = Store.getReviews();
     const pending = orders.filter((order) => !["Entregado", "Cancelado"].includes(order.status));
     const revenue = orders.filter((order) => order.status !== "Cancelado").reduce((sum, order) => sum + Number(order.total), 0);
     main.innerHTML = `${top("Resumen", "Una vista rápida de la operación de LUMEA.")}
@@ -114,6 +116,7 @@
         <article class="stat-card"><span>Pedidos activos</span><b>${pending.length}</b></article>
         <article class="stat-card"><span>Ventas registradas</span><b>${Store.money(revenue)}</b></article>
         <article class="stat-card"><span>Suscriptores</span><b>${Store.getSubscribers().length}</b></article>
+        <article class="stat-card"><span>Opiniones pendientes</span><b>${reviews.filter((review) => review.status === "pending").length}</b></article>
       </section>
       <section class="admin-panel"><div class="admin-panel-head"><h2>Últimos pedidos</h2><button class="admin-secondary" data-admin-tab="orders">Ver todos</button></div>
       ${orders.length ? orders.slice(0, 5).map(orderMini).join("") : "<p>Aún no hay pedidos registrados.</p>"}</section>`;
@@ -377,6 +380,10 @@
       "{{pedido}}": "LUMEA",
       "{{productos}}": "los productos de tu pedido",
       "{{total}}": "el total confirmado de tu pedido",
+      "{{subtotal}}": "el subtotal de productos",
+      "{{entrega}}": "la entrega o recogida acordada",
+      "{{pago}}": "el pago recibido",
+      "{{saldo}}": "el saldo pendiente",
       "{{estado}}": commonStatus || "actualizado"
     };
     const replace = (value) => Object.entries(replacements).reduce((text, [key, replacement]) => text.replaceAll(key, replacement), value || "");
@@ -392,7 +399,7 @@
       ? (order.paymentPortion === "full" ? "Tarjeta · pago total" : "Tarjeta · anticipo del 20%")
       : order.payment === "transfer" ? "Transferencia" : hasPaymentAmounts ? "Efectivo · anticipo del 20% por tarjeta" : "Efectivo";
     const paymentAmounts = hasPaymentAmounts
-      ? `<span>Pago enviado: ${Store.money(order.paymentAmount)}</span><span>Saldo pendiente: ${Store.money(order.balanceDue || 0)}</span>${order.status === "Cancelado" ? `<span>${order.cancellationRefund ? "Anticipo por devolver" : "Anticipo no reembolsable"}</span>` : ""}`
+      ? `<span>Total del pedido: ${Store.money(order.total)}${order.deliveryFee ? " · incluye entrega" : ""}</span><span>Pago enviado: ${Store.money(order.paymentAmount)}</span><span>Saldo pendiente: ${Store.money(order.balanceDue || 0)}</span>${order.status === "Cancelado" ? `<span>${order.cancellationRefund ? "Anticipo por devolver" : "Anticipo no reembolsable"}</span>` : ""}`
       : "";
     const canArchive = order.archived || ["Entregado", "Recogido"].includes(order.status);
     return `<article class="compact-order">
@@ -412,7 +419,7 @@
           <button class="danger" data-order-delete="${order.id}">Eliminar</button>
         </div>
       </div>
-      <div class="order-column"><b>${paymentName}</b>${paymentAmounts || `<span>Total: ${Store.money(order.total)}</span>`}</div>
+      <div class="order-column"><b>${paymentName}</b>${paymentAmounts || `<span>Total del pedido: ${Store.money(order.total)}${order.deliveryFee ? " · incluye entrega" : ""}</span>`}</div>
       <div class="order-column"><b>${order.fulfillment === "delivery" ? `Entrega · ${order.municipality}` : "Recogida"}</b><span>${order.fulfillment === "delivery" ? order.customer.address : Store.getSettings().pickupAddress}</span>${order.fulfillment === "delivery" ? `<span>Tarifa: ${Store.money(order.deliveryFee)}</span>` : ""}</div>
       <div class="order-column order-proof">${order.proof ? `<button data-order-proof="${order.id}"><img src="${order.proof}" alt="Comprobante de ${order.id}" /><span>Ver comprobante</span></button>` : "<span>Sin comprobante</span>"}</div>
     </article>`;
@@ -503,7 +510,7 @@
         <div class="order-line-legend"><span>Producto</span><span>Presentación</span><span>Cant.</span><span>Precio CUP</span><span></span></div>
         <div id="orderLineRows">${(order.lines || []).map((line) => orderLineRow(line)).join("") || orderLineRow()}</div>
         <button type="button" class="admin-secondary" data-order-line-add>＋ Agregar producto</button>
-        <div class="order-editor-summary"><span>Subtotal: <b id="orderSubtotalPreview">${Store.money(order.subtotal)}</b></span><span>Total: <b id="orderTotalPreview">${Store.money(order.total)}</b></span></div>
+        <div class="order-editor-summary"><span>Productos: <b id="orderSubtotalPreview">${Store.money(order.subtotal)}</b></span><span>Total con entrega: <b id="orderTotalPreview">${Store.money(order.total)}</b></span></div>
         <div class="checkout-nav"><button type="button" class="secondary-btn" data-admin-order-close>Cancelar</button><button class="admin-primary">Guardar pedido</button></div>
       </form>`;
     document.getElementById("adminOrderDialog").showModal();
@@ -609,11 +616,40 @@
         ${field("Nombre del formato", "campaignTemplateName", selected.name, "text", "required")}
         ${field("Asunto", "campaignSubject", "", "text", "required")}
         <label class="field">Mensaje<textarea id="campaignBody" required placeholder="Escribe tu promoción o novedad…">${selected.body}</textarea></label>
-        <p>Puedes usar: {{nombre}}, {{pedido}}, {{productos}}, {{total}} y {{estado}}.</p>
+        <p>Puedes usar: {{nombre}}, {{pedido}}, {{productos}}, {{subtotal}}, {{entrega}}, {{pago}}, {{saldo}}, {{total}} y {{estado}}.</p>
         <div class="template-actions"><button type="button" class="admin-secondary" data-template-new>Nuevo formato</button><button type="button" class="admin-secondary" data-template-save>Guardar formato</button><button type="button" class="admin-secondary" data-template-delete ${selected.id ? "" : "disabled"}>Eliminar</button></div>
         <p class="form-error" id="campaignSelectionError"></p>
         <button class="admin-primary" ${subscribers.length ? "" : "disabled"}>Enviar a correos seleccionados</button></form></section>`;
     document.getElementById("campaignSubject").value = selected.subject;
+  }
+
+  function reviewStatusText(status) {
+    if (status === "published") return "Publicada";
+    if (status === "hidden") return "Oculta";
+    return "Pendiente";
+  }
+
+  function renderReviews(main) {
+    const reviews = Store.getReviews();
+    const pending = reviews.filter((review) => review.status === "pending").length;
+    main.innerHTML = `${top("Opiniones", `${pending} pendiente${pending === 1 ? "" : "s"} de revisión. Solo las publicadas aparecen en la página principal.`)}
+      <section class="admin-panel">
+        <div class="admin-panel-head"><h2>Opiniones de clientes</h2><small>Aprueba solo experiencias reales y claras.</small></div>
+        <div class="admin-review-list">
+          ${reviews.length ? reviews.map((review) => {
+            const rating = Math.min(5, Math.max(1, Number(review.rating) || 5));
+            return `<article class="admin-review-card ${review.status}">
+              <div><span class="stars">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><h3>${attribute(review.name)}${review.city ? ` · ${attribute(review.city)}` : ""}</h3><p>${attribute(review.comment)}</p><small>${new Date(review.createdAt).toLocaleString("es-CU")}</small></div>
+              <div class="admin-review-actions">
+                <b>${reviewStatusText(review.status)}</b>
+                <button class="admin-secondary" data-review-status="${review.id}" data-review-next="published">Publicar</button>
+                <button class="admin-secondary" data-review-status="${review.id}" data-review-next="hidden">Ocultar</button>
+                <button class="admin-secondary danger" data-review-delete="${review.id}">Eliminar</button>
+              </div>
+            </article>`;
+          }).join("") : `<p class="empty-orders">Aún no hay opiniones de clientes.</p>`}
+        </div>
+      </section>`;
   }
 
   function applyOrderTemplate(template, order) {
@@ -622,6 +658,10 @@
       "{{pedido}}": order.id || "",
       "{{productos}}": order.lines.map((line) => `${line.qty} × ${line.name} (${line.variant})`).join("\n"),
       "{{total}}": Store.money(order.total),
+      "{{subtotal}}": Store.money(order.subtotal),
+      "{{entrega}}": order.fulfillment === "delivery" ? `${order.municipality || "Entrega"} · ${Store.money(order.deliveryFee)}` : "Recogida sin costo de entrega",
+      "{{pago}}": Store.money(order.paymentAmount),
+      "{{saldo}}": Store.money(order.balanceDue || 0),
       "{{estado}}": order.status || ""
     };
     const replace = (value) => Object.entries(replacements).reduce((text, [key, replacement]) => text.replaceAll(key, replacement), value || "");
@@ -665,7 +705,7 @@
         ${field("Nombre del formato", "settingsTemplateName", selectedTemplate.name, "text", "required")}
         ${field("Asunto", "settingsTemplateSubject", selectedTemplate.subject, "text", "required")}
         <label class="field">Mensaje<textarea id="settingsTemplateBody" required>${attribute(selectedTemplate.body)}</textarea></label>
-        <p>Puedes usar: {{nombre}}, {{pedido}}, {{productos}}, {{total}} y {{estado}}.</p>
+        <p>Puedes usar: {{nombre}}, {{pedido}}, {{productos}}, {{subtotal}}, {{entrega}}, {{pago}}, {{saldo}}, {{total}} y {{estado}}.</p>
         <div class="template-actions"><button type="button" class="admin-secondary" data-settings-template-new>Nuevo formato</button><button class="admin-primary">Guardar mensaje</button></div>
       </form>
       </section>`;
@@ -810,8 +850,17 @@
       const templateId = document.querySelector(`[data-order-template="${order.id}"]`).value;
       const template = Store.getEmailTemplates().find((item) => item.id === templateId);
       if (order?.customer.email && template) {
-        const message = applyOrderTemplate(template, order);
-        window.open(gmailComposeUrl({ to: order.customer.email, subject: message.subject, body: message.body }), "_blank", "noopener");
+        orderEmail.disabled = true;
+        orderEmail.textContent = "Enviando…";
+        try {
+          await Store.sendOrderEmail(order.id, template.id);
+          savedToast(`Correo enviado a ${order.customer.email}`);
+        } catch (error) {
+          savedToast(error.message || "No se pudo enviar el correo");
+        } finally {
+          orderEmail.disabled = false;
+          orderEmail.textContent = "Enviar correo";
+        }
       }
     }
     if (event.target.closest("[data-bulk-order-status]")) {
@@ -877,6 +926,21 @@
         const message = applyBulkOrderTemplate(template, selected);
         window.open(gmailComposeUrl({ bcc: recipients.join(","), subject: message.subject, body: message.body }), "_blank", "noopener");
       }
+    }
+    const reviewStatus = event.target.closest("[data-review-status]");
+    if (reviewStatus) {
+      const review = Store.getReviews().find((item) => item.id === reviewStatus.dataset.reviewStatus);
+      if (review) {
+        await Store.saveAdminReview({ ...review, status: reviewStatus.dataset.reviewNext });
+        renderReviews(document.getElementById("adminMain"));
+        savedToast(reviewStatus.dataset.reviewNext === "published" ? "Opinión publicada" : "Opinión ocultada");
+      }
+    }
+    const reviewDelete = event.target.closest("[data-review-delete]");
+    if (reviewDelete && confirm("¿Eliminar esta opinión?")) {
+      await Store.deleteReview(reviewDelete.dataset.reviewDelete);
+      renderReviews(document.getElementById("adminMain"));
+      savedToast("Opinión eliminada");
     }
     if (event.target.closest("[data-municipality-add]")) {
       document.getElementById("municipalityRows").insertAdjacentHTML("beforeend", `<div class="municipality-row" data-municipality="new-${Date.now()}"><input class="municipality-name" placeholder="Municipio" /><input class="municipality-fee" type="number" min="0" value="0" /><label class="switch"><input class="municipality-active" type="checkbox" checked /> Activo</label><button class="admin-secondary" data-municipality-remove>Eliminar</button></div>`);

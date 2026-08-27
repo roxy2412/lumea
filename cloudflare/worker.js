@@ -204,6 +204,18 @@ async function getSubscribers(env) {
   return result.results.map((row) => row.email);
 }
 
+let reviewsSchemaPromise = null;
+
+async function ensureReviewsSchema(env) {
+  if (!reviewsSchemaPromise) {
+    reviewsSchemaPromise = env.DB.batch([
+      env.DB.prepare("CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT, name TEXT NOT NULL, city TEXT, rating INTEGER NOT NULL DEFAULT 5, comment TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending')"),
+      env.DB.prepare("CREATE INDEX IF NOT EXISTS reviews_status_created_at_idx ON reviews(status, created_at DESC)")
+    ]);
+  }
+  return reviewsSchemaPromise;
+}
+
 function normalizeEmail(email) {
   const value = String(email || "").trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : "";
@@ -216,6 +228,61 @@ async function rememberSubscriber(env, email) {
     "INSERT OR IGNORE INTO subscribers (email, created_at) VALUES (?, ?)"
   ).bind(normalized, new Date().toISOString()).run();
   return { ok: true };
+}
+
+function rowToReview(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || "",
+    name: row.name || "",
+    city: row.city || "",
+    rating: Math.min(5, Math.max(1, Number(row.rating) || 5)),
+    comment: row.comment || "",
+    status: row.status || "pending"
+  };
+}
+
+function normalizeReview(review = {}, status = "pending") {
+  return {
+    id: String(review.id || `REV-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`),
+    createdAt: review.createdAt || new Date().toISOString(),
+    updatedAt: review.updatedAt || "",
+    name: String(review.name || "").trim().slice(0, 40),
+    city: String(review.city || "").trim().slice(0, 45),
+    rating: Math.min(5, Math.max(1, Number(review.rating) || 5)),
+    comment: String(review.comment || "").trim().slice(0, 500),
+    status: ["pending", "published", "hidden"].includes(review.status) ? review.status : status
+  };
+}
+
+async function getReviews(env, publishedOnly = false) {
+  await ensureReviewsSchema(env);
+  const result = publishedOnly
+    ? await env.DB.prepare("SELECT * FROM reviews WHERE status = 'published' ORDER BY created_at DESC LIMIT 12").all()
+    : await env.DB.prepare("SELECT * FROM reviews ORDER BY created_at DESC LIMIT 200").all();
+  return result.results.map(rowToReview);
+}
+
+async function saveReview(env, review) {
+  await ensureReviewsSchema(env);
+  const value = { ...normalizeReview(review), status: "pending" };
+  if (!value.name || !value.comment) throw new Error("invalid_review");
+  await env.DB.prepare(
+    "INSERT INTO reviews (id, created_at, updated_at, name, city, rating, comment, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(value.id, value.createdAt, value.updatedAt, value.name, value.city, value.rating, value.comment, value.status).run();
+  return value;
+}
+
+async function saveAdminReview(env, review) {
+  await ensureReviewsSchema(env);
+  const value = normalizeReview(review, "pending");
+  if (!value.id || !value.name || !value.comment) throw new Error("invalid_review");
+  value.updatedAt = new Date().toISOString();
+  await env.DB.prepare(
+    "UPDATE reviews SET updated_at = ?, name = ?, city = ?, rating = ?, comment = ?, status = ? WHERE id = ?"
+  ).bind(value.updatedAt, value.name, value.city, value.rating, value.comment, value.status, value.id).run();
+  return value;
 }
 
 function money(value) {
@@ -256,7 +323,8 @@ function orderNotificationText(order, origin) {
     ...(order.lines || []).map((line) => `${line.qty} x ${line.name} (${line.variant}) - ${money(Number(line.unitPrice) * Number(line.qty))}`),
     "",
     `Subtotal: ${money(order.subtotal)}`,
-    `Total: ${money(order.total)}`,
+    `Costo de entrega: ${order.deliveryFee ? money(order.deliveryFee) : "Sin costo"}`,
+    `Total del pedido: ${money(order.total)}`,
     "",
     `Panel administrativo: ${origin}/#admin`
   ].join("\n");
@@ -281,7 +349,9 @@ function orderNotificationHtml(order, origin) {
     <b>Saldo pendiente:</b> ${escapeHtml(money(order.balanceDue))}</p>
     <h3>Productos</h3>
     <ul>${lines}</ul>
-    <p><b>Total:</b> ${escapeHtml(money(order.total))}</p>
+    <p><b>Productos:</b> ${escapeHtml(money(order.subtotal))}<br>
+    <b>Costo de entrega:</b> ${escapeHtml(order.deliveryFee ? money(order.deliveryFee) : "Sin costo")}<br>
+    <b>Total del pedido:</b> ${escapeHtml(money(order.total))}</p>
     <p><a href="${escapeHtml(origin)}/#admin">Abrir panel administrativo</a></p>
   </div>`;
 }
@@ -315,6 +385,89 @@ async function sendOrderNotification(env, order, origin) {
   return { ok: true };
 }
 
+function applyOrderEmailTemplate(template, order) {
+  const delivery = order.fulfillment === "delivery"
+    ? `${order.municipality || "Entrega"} · ${money(order.deliveryFee)}`
+    : "Recogida sin costo de entrega";
+  const replacements = {
+    "{{nombre}}": order.customer?.name || "",
+    "{{pedido}}": order.id || "",
+    "{{productos}}": (order.lines || []).map((line) => `${line.qty} × ${line.name} (${line.variant})`).join("\n"),
+    "{{subtotal}}": money(order.subtotal),
+    "{{entrega}}": delivery,
+    "{{pago}}": money(order.paymentAmount),
+    "{{saldo}}": money(order.balanceDue || 0),
+    "{{total}}": money(order.total),
+    "{{estado}}": order.status || ""
+  };
+  const replace = (value) => Object.entries(replacements).reduce(
+    (text, [key, replacement]) => text.replaceAll(key, replacement),
+    String(value || "")
+  );
+  return { subject: replace(template.subject), body: replace(template.body) };
+}
+
+function confirmationEmailTemplate(template) {
+  const legacy = "Gracias por comprar en LUMEA. Recibimos tu pedido";
+  if (template && !String(template.body || "").includes(legacy)) return template;
+  return {
+    id: "gracias-pedido",
+    subject: "Confirmamos tu pedido {{pedido}} en LUMEA",
+    body: "Hola {{nombre}},\n\n¡Gracias por elegir LUMEA!\n\nHemos recibido correctamente tu pedido {{pedido}} y comenzaremos a prepararlo con mucho cuidado.\n\nResumen de tu compra\n\n{{productos}}\n\nEntrega: {{entrega}}\nPago enviado: {{pago}}\nSaldo pendiente: {{saldo}}\nTotal confirmado: {{total}}\n\nTe mantendremos informado durante cada etapa del proceso.\n\nCon cariño,\nEquipo LUMEA\nCosmética natural"
+  };
+}
+
+function customerOrderEmailHtml(message, origin) {
+  const bannerUrl = `${origin}/assets/lumea-email-banner.png`;
+  const bodyHtml = escapeHtml(message.body).replaceAll("\n", "<br>");
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="margin:0;background:#f3eee6;color:#3e4939;font-family:Arial,sans-serif">
+    <div style="display:none;max-height:0;overflow:hidden">${escapeHtml(message.subject)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3eee6;padding:24px 10px"><tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#fffdf9;border:1px solid #ded6ca;border-radius:18px;overflow:hidden">
+        <tr><td><img src="${escapeHtml(bannerUrl)}" alt="LUMEA Cosmética Natural" width="680" style="display:block;width:100%;height:auto;border:0"></td></tr>
+        <tr><td style="padding:38px 42px 20px">
+          <div style="font-size:15px;line-height:1.75;color:#3e4939">${bodyHtml}</div>
+        </td></tr>
+        <tr><td style="padding:22px 42px;background:#e8ece3;border-top:1px solid #d7ddcf;text-align:center">
+          <p style="margin:0;color:#66705b;font-size:12px;line-height:1.6">LUMEA · Cosmética natural<br>Este mensaje corresponde al seguimiento de tu pedido.</p>
+        </td></tr>
+      </table>
+    </td></tr></table>
+  </body></html>`;
+}
+
+async function sendCustomerOrderEmail(env, order, template, origin) {
+  if (!env.RESEND_API_KEY) throw new Error("missing_resend_api_key");
+  const to = normalizeEmail(order.customer?.email);
+  if (!to) throw new Error("invalid_customer_email");
+  const settings = await getSettings(env).catch(() => null);
+  let from = settings?.orderNotificationFrom || env.ORDER_NOTIFICATION_FROM || env.EMAIL_FROM || "";
+  from = String(from).replace(/pedidos@vixo\.com\.mx/gi, "pedidos@mail.vixo.com.mx");
+  if (!from) throw new Error("missing_email_from");
+  const message = applyOrderEmailTemplate(template, order);
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "authorization": `Bearer ${env.RESEND_API_KEY}`,
+      "content-type": "application/json",
+      "user-agent": "LUMEA Store Worker"
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject: message.subject,
+      text: message.body,
+      html: customerOrderEmailHtml(message, origin)
+    })
+  });
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw new Error(`customer_email_failed:${response.status}:${details.slice(0, 160)}`);
+  }
+  return { ok: true };
+}
+
 async function storeProof(env, orderId, dataUrl) {
   if (!dataUrl) return "";
   if (!env.PROOFS) throw new Error("proof_storage_missing");
@@ -333,7 +486,24 @@ async function storeProof(env, orderId, dataUrl) {
   return key;
 }
 
+function orderFinancials(order) {
+  const computedSubtotal = (order.lines || []).reduce((sum, line) =>
+    sum + (Number(line.unitPrice) || 0) * (Number(line.qty) || 0), 0);
+  const subtotal = computedSubtotal > 0 ? computedSubtotal : Math.max(0, Number(order.subtotal) || 0);
+  const deliveryFee = Math.max(0, Number(order.deliveryFee) || 0);
+  const total = Math.max(0, subtotal + deliveryFee);
+  const paymentAmount = Math.max(0, Number(order.paymentAmount) || 0);
+  return {
+    subtotal,
+    deliveryFee,
+    total,
+    paymentAmount,
+    balanceDue: Math.max(0, total - paymentAmount)
+  };
+}
+
 async function insertOrder(env, order, proofKey = "") {
+  const financials = orderFinancials(order);
   await env.DB.prepare(`
     INSERT INTO orders (
       id, created_at, updated_at, status, archived, archived_at,
@@ -372,15 +542,15 @@ async function insertOrder(env, order, proofKey = "") {
     JSON.stringify(order.customer || {}),
     order.fulfillment || "pickup",
     order.municipality || "",
-    Number(order.deliveryFee) || 0,
+    financials.deliveryFee,
     order.payment || "card",
     order.paymentPortion || "",
-    Number(order.paymentAmount) || 0,
-    Number(order.balanceDue) || 0,
+    financials.paymentAmount,
+    financials.balanceDue,
     proofKey || "",
     JSON.stringify(order.lines || []),
-    Number(order.subtotal) || 0,
-    Number(order.total) || 0
+    financials.subtotal,
+    financials.total
   ).run();
 }
 
@@ -421,10 +591,11 @@ async function decrementInventory(env, lines) {
 
 async function handleApi(request, env, url, context) {
   if (request.method === "GET" && url.pathname === "/api/bootstrap") {
-    const [products, settings] = await Promise.all([getProducts(env), getSettings(env)]);
+    const [products, settings, reviews] = await Promise.all([getProducts(env), getSettings(env), getReviews(env, true)]);
     return json({
       products: products.length ? products.map(publicProduct) : null,
-      settings: publicSettings(settings)
+      settings: publicSettings(settings),
+      reviews
     }, 200, { "cache-control": "public, max-age=60, stale-while-revalidate=86400" });
   }
 
@@ -445,15 +616,24 @@ async function handleApi(request, env, url, context) {
       await insertOrder(env, { ...order, proof: "" }, proofKey);
       inserted = true;
       await decrementInventory(env, order.lines);
-      const savedOrder = { ...order, proof: proofKey ? `/api/admin/orders/${encodeURIComponent(order.id)}/proof` : "" };
+      const savedRow = await env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(order.id).first();
+      const savedOrder = savedRow ? rowToOrder(savedRow) : { ...order, proof: proofKey ? `/api/admin/orders/${encodeURIComponent(order.id)}/proof` : "" };
       await rememberSubscriber(env, savedOrder.customer?.email).catch((error) => {
         console.error("subscriber registration failed", error.message);
       });
       const notification = sendOrderNotification(env, savedOrder, url.origin).catch((error) => {
         console.error("order notification failed", error.message);
       });
-      if (context?.waitUntil) context.waitUntil(notification);
-      else await notification;
+      const confirmation = getEmailTemplates(env)
+        .then((templates) => confirmationEmailTemplate(templates.find((template) => template.id === "gracias-pedido")))
+        .then((template) => sendCustomerOrderEmail(env, savedOrder, template, url.origin))
+        .catch((error) => console.error("customer confirmation failed", error.message));
+      if (context?.waitUntil) {
+        context.waitUntil(notification);
+        context.waitUntil(confirmation);
+      } else {
+        await Promise.all([notification, confirmation]);
+      }
       return json({
         ok: true,
         order: savedOrder
@@ -508,6 +688,16 @@ async function handleApi(request, env, url, context) {
     });
   }
 
+  if (request.method === "POST" && url.pathname === "/api/reviews") {
+    const data = await request.json().catch(() => null);
+    const review = normalizeReview(data || {}, "pending");
+    if (!review.name || review.name.length < 2 || !review.comment || review.comment.length < 8) {
+      return json({ error: "Escribe tu nombre y una opinión un poco más completa." }, 400);
+    }
+    const saved = await saveReview(env, review);
+    return json({ ok: true, review: saved }, 201);
+  }
+
   if (request.method === "POST" && url.pathname === "/api/subscribers") {
     const data = await request.json();
     const email = normalizeEmail(data.email);
@@ -538,14 +728,15 @@ async function handleApi(request, env, url, context) {
   if (!(await adminAuthorized(request, env))) return json({ error: "Sesión no autorizada." }, 401);
 
   if (request.method === "GET" && url.pathname === "/api/admin/bootstrap") {
-    const [products, settings, orders, emailTemplates, subscribers] = await Promise.all([
+    const [products, settings, orders, emailTemplates, subscribers, reviews] = await Promise.all([
       getProducts(env),
       getSettings(env),
       getOrders(env),
       getEmailTemplates(env),
-      getSubscribers(env)
+      getSubscribers(env),
+      getReviews(env, false)
     ]);
-    return json({ products: products.length ? products : null, settings, orders, emailTemplates, subscribers });
+    return json({ products: products.length ? products : null, settings, orders, emailTemplates, subscribers, reviews });
   }
 
   const productMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
@@ -629,6 +820,24 @@ async function handleApi(request, env, url, context) {
     return json({ ok: true, count: subscribers.length });
   }
 
+  const reviewMatch = url.pathname.match(/^\/api\/admin\/reviews\/([^/]+)$/);
+  if (reviewMatch && request.method === "PUT") {
+    const reviewId = decodeURIComponent(reviewMatch[1]);
+    const review = await request.json();
+    if (!review?.id || review.id !== reviewId || !review.name || !review.comment) {
+      return json({ error: "Opinión inválida." }, 400);
+    }
+    const saved = await saveAdminReview(env, review);
+    return json({ ok: true, review: saved });
+  }
+
+  if (reviewMatch && request.method === "DELETE") {
+    const reviewId = decodeURIComponent(reviewMatch[1]);
+    await ensureReviewsSchema(env);
+    await env.DB.prepare("DELETE FROM reviews WHERE id = ?").bind(reviewId).run();
+    return json({ ok: true });
+  }
+
   const orderMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
   if (orderMatch && request.method === "PUT") {
     const orderId = decodeURIComponent(orderMatch[1]);
@@ -671,6 +880,24 @@ async function handleApi(request, env, url, context) {
     headers.set("cache-control", "private, no-store");
     headers.set("content-security-policy", "default-src 'none'; img-src 'self'");
     return new Response(object.body, { headers });
+  }
+
+  const orderEmailMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/email$/);
+  if (request.method === "POST" && orderEmailMatch) {
+    const orderId = decodeURIComponent(orderEmailMatch[1]);
+    const payload = await request.json();
+    const row = await env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(orderId).first();
+    if (!row) return json({ error: "Pedido no encontrado." }, 404);
+    const templateRow = await env.DB.prepare("SELECT data_json FROM email_templates WHERE id = ?").bind(String(payload.templateId || "")).first();
+    const template = templateRow ? safeJson(templateRow.data_json, null) : null;
+    if (!template) return json({ error: "Formato de correo no encontrado." }, 404);
+    try {
+      await sendCustomerOrderEmail(env, rowToOrder(row), template, url.origin);
+      return json({ ok: true });
+    } catch (error) {
+      console.error("customer_order_email_failed", error);
+      return json({ error: "No se pudo enviar el correo. Revisa la configuración de Resend." }, 502);
+    }
   }
 
   return json({ error: "No encontrado." }, 404);

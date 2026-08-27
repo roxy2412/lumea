@@ -5,8 +5,9 @@ Tienda en línea de LUMEA para Cuba, publicada en:
 **https://lumea.vixo.com.mx**
 
 Incluye catálogo, cantidades y precios en CUP, inventario, pedidos, anticipo,
-comprobantes, entregas o recogidas y administración protegida. Los pedidos y
-productos se guardan en Cloudflare D1 y los comprobantes en Cloudflare R2.
+comprobantes, entregas o recogidas, opiniones de clientes y administración
+protegida. Los pedidos, productos, suscriptores, opiniones y formatos de correo
+se guardan en Cloudflare D1; los comprobantes se guardan en Cloudflare R2.
 
 ## Publicación recomendada
 
