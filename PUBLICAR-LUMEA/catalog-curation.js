@@ -9,9 +9,9 @@
     "deshidratado-de-cola-de-caballo": "assets/lumea-cola-de-caballo.jpg",
     "deshidratado-de-calendula": "assets/lumea-calendula-deshidratada.jpg",
     "carbon-activado": "assets/lumea-dried-herbs.jpeg",
-    "cucharas-medidoras": "assets/lumea-logo-square.png",
-    "tazas-medidoras": "assets/lumea-logo-square.png",
-    "tiras-reactivas-ph": "assets/lumea-logo-square.png"
+    "cucharas-medidoras": "assets/lumea-logo-icono.webp",
+    "tazas-medidoras": "assets/lumea-logo-icono.webp",
+    "tiras-reactivas-ph": "assets/lumea-logo-icono.webp"
   };
 
   function curatedImage(product) {
@@ -33,7 +33,7 @@
     if (family === "Insumos para Cosmética Natural e Higiene Personal") {
       return "assets/lumea-organic-products-spanish.png";
     }
-    return "assets/lumea-logo-square.png";
+    return "assets/lumea-logo-icono.webp";
   }
 
   function selectedLumeaImage(product) {
@@ -76,7 +76,7 @@
       id: "tiras-reactivas-ph",
       name: "Tiras Reactivas de pH",
       category: "Insumos",
-      image: "assets/lumea-logo-square.png",
+      image: "assets/lumea-logo-icono.webp",
       sourceUrl: "https://bioalei.com/producto/paquete-con-80-tiras-de-papel-ph/",
       description: "Paquete con 80 tiras para medir líquidos en una escala de pH de 1 a 14. Incluye tabla colorimétrica y ofrece resultados en 2 a 3 segundos.",
       active: true,

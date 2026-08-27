@@ -172,13 +172,13 @@ async function productImage(request, env, url, context) {
   }
   const allowedHost = source.hostname === "bioalei.com" || source.hostname.endsWith(".bioalei.com");
   if (source.protocol !== "https:" || !allowedHost) {
-    return env.ASSETS.fetch(new Request(new URL("/assets/lumea-logo-square.png", request.url)));
+    return env.ASSETS.fetch(new Request(new URL("/assets/lumea-logo-icono.webp", request.url)));
   }
   const upstream = await fetch(source.toString(), {
     cf: { cacheEverything: true, cacheTtl: 604800 }
   });
   if (!upstream.ok || !(upstream.headers.get("content-type") || "").startsWith("image/")) {
-    return env.ASSETS.fetch(new Request(new URL("/assets/lumea-logo-square.png", request.url)));
+    return env.ASSETS.fetch(new Request(new URL("/assets/lumea-logo-icono.webp", request.url)));
   }
   const headers = new Headers();
   headers.set("content-type", upstream.headers.get("content-type"));
@@ -202,6 +202,20 @@ async function getEmailTemplates(env) {
 async function getSubscribers(env) {
   const result = await env.DB.prepare("SELECT email FROM subscribers ORDER BY email").all();
   return result.results.map((row) => row.email);
+}
+
+function normalizeEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : "";
+}
+
+async function rememberSubscriber(env, email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return { skipped: "invalid_email" };
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO subscribers (email, created_at) VALUES (?, ?)"
+  ).bind(normalized, new Date().toISOString()).run();
+  return { ok: true };
 }
 
 function money(value) {
@@ -276,7 +290,8 @@ async function sendOrderNotification(env, order, origin) {
   if (!env.RESEND_API_KEY) return { skipped: "missing_api_key" };
   const settings = await getSettings(env).catch(() => null);
   const to = settings?.orderNotificationEmail || env.ORDER_NOTIFICATION_EMAIL || env.ADMIN_EMAIL;
-  const from = settings?.orderNotificationFrom || env.ORDER_NOTIFICATION_FROM || env.EMAIL_FROM || "";
+  let from = settings?.orderNotificationFrom || env.ORDER_NOTIFICATION_FROM || env.EMAIL_FROM || "";
+  from = String(from).replace(/pedidos@vixo\.com\.mx/gi, "pedidos@mail.vixo.com.mx");
   if (!to || !from) return { skipped: "missing_email_config" };
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -431,6 +446,9 @@ async function handleApi(request, env, url, context) {
       inserted = true;
       await decrementInventory(env, order.lines);
       const savedOrder = { ...order, proof: proofKey ? `/api/admin/orders/${encodeURIComponent(order.id)}/proof` : "" };
+      await rememberSubscriber(env, savedOrder.customer?.email).catch((error) => {
+        console.error("subscriber registration failed", error.message);
+      });
       const notification = sendOrderNotification(env, savedOrder, url.origin).catch((error) => {
         console.error("order notification failed", error.message);
       });
@@ -492,11 +510,9 @@ async function handleApi(request, env, url, context) {
 
   if (request.method === "POST" && url.pathname === "/api/subscribers") {
     const data = await request.json();
-    const email = String(data.email || "").trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Correo inválido." }, 400);
-    await env.DB.prepare(
-      "INSERT OR IGNORE INTO subscribers (email, created_at) VALUES (?, ?)"
-    ).bind(email, new Date().toISOString()).run();
+    const email = normalizeEmail(data.email);
+    if (!email) return json({ error: "Correo inválido." }, 400);
+    await rememberSubscriber(env, email);
     return json({ ok: true });
   }
 

@@ -12,6 +12,7 @@
     productPage: 1,
     selectedProducts: new Set(),
     emailTemplateId: "",
+    settingsTemplateId: "",
     orderView: "active"
   };
   const statuses = ["Pedido recibido", "En preparación", "Listo para entrega", "Enviado", "En proceso de entrega", "Entregado", "Recogido", "Cancelado"];
@@ -43,7 +44,7 @@
   }
 
   function field(label, id, value = "", type = "text", extra = "") {
-    return `<label class="field">${label}<input id="${id}" name="${id}" type="${type}" value="${String(value).replaceAll('"', "&quot;")}" ${extra} /></label>`;
+    return `<label class="field">${label}<input id="${id}" name="${id}" type="${type}" value="${attribute(value)}" ${extra} /></label>`;
   }
 
   function attribute(value) {
@@ -57,8 +58,8 @@
 
   function renderLogin() {
     app.innerHTML = `<div class="admin-login"><div class="admin-login-art"></div><div class="admin-login-panel">
-      <div class="login-card"><img src="assets/lumea-logo-horizontal-ligero.jpg" alt="LUMEA" />
-        <p class="eyebrow">ÁREA PRIVADA</p><h1>Administración</h1><p>Acceso exclusivo de LUMEA para gestionar completamente el catálogo, los pedidos, las entregas y las comunicaciones.</p>
+      <div class="login-card"><img src="assets/lumea-logo-nuevo.webp" alt="LUMEA" />
+        <p class="eyebrow">ÁREA PRIVADA</p><h1>Administración</h1><p>Panel de LUMEA para gestionar el catálogo, los pedidos, las entregas y las comunicaciones.</p>
         <form id="loginForm">${field("Correo administrador", "loginUser", "", "email", "required")}
           ${field("Contraseña", "loginPassword", "", "password", "required")}
           <p class="form-error" id="loginError"></p><button class="primary-btn">Entrar al panel</button></form>
@@ -73,7 +74,7 @@
       campaigns: "Correos masivos", settings: "Configuración"
     };
     app.innerHTML = `<div class="admin-shell"><aside class="admin-sidebar">
-      <img src="assets/lumea-logo-horizontal-ligero.jpg" alt="LUMEA" />
+      <img src="assets/lumea-logo-nuevo.webp" alt="LUMEA" />
       <nav>${Object.entries(labels).map(([id, label]) => `<button class="admin-tab ${adminState.tab === id ? "active" : ""}" data-admin-tab="${id}">${label}</button>`).join("")}</nav>
       <footer><a href="#inicio">Ver tienda</a><button data-admin-logout>Cerrar sesión</button></footer>
     </aside><main class="admin-main" id="adminMain"></main></div>
@@ -188,7 +189,7 @@
         const categoryHeader = category !== previousCategory ? `<tr class="product-category-row"><td colspan="7">${category}</td></tr>` : "";
         previousCategory = category;
         return `${categoryHeader}<tr><td><input class="product-check" data-product-select="${product.id}" type="checkbox" ${adminState.selectedProducts.has(product.id) ? "checked" : ""} aria-label="Seleccionar ${product.name}" /></td>
-          <td><div class="table-product"><img src="${product.image}" onerror="this.src='assets/lumea-logo-square.png'" alt="" /><b>${product.name}</b></div></td>
+          <td><div class="table-product"><img src="${product.image}" onerror="this.src='assets/lumea-logo-icono.webp'" alt="" /><b>${product.name}</b></div></td>
           <td>${familyLabel(product.family || product.category)}<br /><small>${subcategoryLabel(product.family, product.subcategory || "")}</small></td><td>${product.variants.length}</td><td>Desde ${Store.money(Math.min(...prices))}</td>
           <td><span class="status-pill">${product.active ? "Visible" : "Oculto"}</span></td>
           <td><div class="row-actions"><button data-product-edit="${product.id}">Editar</button><button data-product-toggle="${product.id}">${product.active ? "Ocultar" : "Mostrar"}</button><button data-product-delete="${product.id}">Eliminar</button></div></td></tr>`;
@@ -237,7 +238,7 @@
   function productEditor(product) {
     const isNew = !product;
     const value = product || {
-      id: "", name: "", category: "Insumos", family: "Insumos para Jabón", subcategory: "Bases de Jabón de Glicerina", description: "", image: "assets/lumea-logo-square.png",
+      id: "", name: "", category: "Insumos", family: "Insumos para Jabón", subcategory: "Bases de Jabón de Glicerina", description: "", image: "assets/lumea-logo-icono.webp",
       active: true, variants: [{ label: "1 unidad", shippingWeightGrams: 15, mxn: 0, bioaleiPriceMxn: 0, publicPriceCup: 0, stock: null }]
     };
     const families = Object.keys(window.LUMEA_TAXONOMY || {});
@@ -339,14 +340,10 @@
         </div>
         ${visibleOrders.length ? `<div class="bulk-orders">
           <label><input id="selectAllOrders" type="checkbox" /> Seleccionar todos</label>
-          <select id="bulkOrderStatus" aria-label="Estado para pedidos seleccionados">${statusOptions}</select>
-          <button class="admin-secondary" data-bulk-order-status>Aplicar estado</button>
-          <button class="admin-secondary" data-bulk-order-archive>${adminState.orderView === "archived" ? "Restaurar seleccionados" : "Archivar seleccionados"}</button>
-          <button class="admin-secondary danger" data-bulk-order-delete>Eliminar seleccionados</button>
-          <select id="bulkOrderTemplate" aria-label="Formato para pedidos seleccionados">${templateOptions}</select>
-          <button class="admin-primary" data-bulk-order-email>Abrir correo en Gmail</button>
+          <div class="bulk-order-group"><span>Estado</span><select id="bulkOrderStatus" aria-label="Estado para pedidos seleccionados">${statusOptions}</select><button class="admin-secondary" data-bulk-order-status>Aplicar</button></div>
+          <div class="bulk-order-group"><button class="admin-secondary" data-bulk-order-archive>${adminState.orderView === "archived" ? "Restaurar" : "Archivar"}</button><button class="admin-secondary danger" data-bulk-order-delete>Eliminar</button></div>
+          <div class="bulk-order-group"><span>Correo</span><select id="bulkOrderTemplate" aria-label="Formato para pedidos seleccionados">${templateOptions}</select><button class="admin-primary" data-bulk-order-email>Abrir Gmail</button></div>
           <small id="bulkOrderError"></small>
-          <small>Gmail enviará desde la cuenta activa. Si no aparece LUMEA, cambia de cuenta o selecciona el remitente dentro de Gmail.</small>
         </div>
         <div class="order-list-head"><span>Pedido</span><span>Pago</span><span>Entrega o recogida</span><span>Comprobante</span></div>
         <div class="compact-order-list">${visibleOrders.map(orderCard).join("")}</div>` : `<div class="empty-orders">No hay pedidos ${adminState.orderView === "archived" ? "archivados" : "activos"}.</div>`}
@@ -633,6 +630,15 @@
 
   function renderSettings(main) {
     const settings = Store.getSettings();
+    const templates = Store.getEmailTemplates();
+    const creatingTemplate = adminState.settingsTemplateId === "__new__";
+    const selectedTemplate = creatingTemplate
+      ? { id: "", name: "", subject: "", body: "" }
+      : templates.find((template) => template.id === adminState.settingsTemplateId)
+      || templates.find((template) => template.id === "gracias-pedido")
+      || templates[0]
+      || { id: "", name: "", subject: "", body: "" };
+    if (!creatingTemplate) adminState.settingsTemplateId = selectedTemplate.id;
     main.innerHTML = `${top("Configuración", "Controla la fórmula de precios y la operación de LUMEA.")}
       <section class="settings-grid"><form class="settings-card" id="pricingForm"><h2>Precio y conversión</h2>
         <div class="formula">[Precio BioAlei + ((gramos o ml ÷ 1000) × ${settings.shippingMxnPerKg})] ÷ (1 − ${settings.margin}) × tasa del día</div>
@@ -645,7 +651,7 @@
         ${field("Horas permitidas para cancelar", "settingCancelHours", settings.cancelHours, "number", "min='1'")}
         ${field("WhatsApp de contacto", "settingWhatsapp", settings.whatsapp)}
         ${field("Correo que recibe nuevos pedidos", "settingOrderNotificationEmail", settings.orderNotificationEmail || settings.ordersEmail || "", "email")}
-        ${field("Remitente del aviso automático", "settingOrderNotificationFrom", settings.orderNotificationFrom || "", "text", "placeholder='LUMEA <pedidos@vixo.com.mx>'")}
+        ${field("Remitente del aviso automático", "settingOrderNotificationFrom", settings.orderNotificationFrom || "", "text", "placeholder='LUMEA <pedidos@mail.vixo.com.mx>'")}
         ${field("Tiempo de preparación", "settingPreparationTime", settings.preparationTime)}
         ${field("Tiempo de entrega", "settingDeliveryTime", settings.deliveryTime)}
         <label class="field">Punto de recogida<textarea id="settingPickup" rows="4">${settings.pickupAddress}</textarea></label>
@@ -653,8 +659,15 @@
         <label class="field">Política de cancelación<textarea id="settingCancellationPolicy" rows="4">${settings.cancellationPolicy}</textarea></label>
         <label class="field">Privacidad<textarea id="settingPrivacyPolicy" rows="4">${settings.privacyPolicy}</textarea></label>
         <button class="admin-primary">Guardar operación</button></form>
-      <aside class="settings-card"><h2>Correo automático</h2><p>Cuando entre un pedido nuevo, el servidor intentará avisar a este correo. Para que salga de forma automática hay que guardar en Cloudflare el secreto RESEND_API_KEY y verificar el remitente en Resend.</p></aside>
-      <aside class="settings-card"><h2>Acceso exclusivo</h2><p>La cuenta administradora está configurada y no existe registro público ni creación de otros administradores.</p></aside>
+      <form class="settings-card settings-template-card" id="settingsTemplateForm"><h2>Mensajes predeterminados</h2>
+        <p>Estos son los formatos que usa el administrador al abrir Gmail desde pedidos o correos masivos.</p>
+        <label class="field">Formato<select id="settingsTemplate"><option value="__new__" ${creatingTemplate ? "selected" : ""}>Nuevo formato</option>${templates.map((template) => `<option value="${attribute(template.id)}" ${template.id === selectedTemplate.id && !creatingTemplate ? "selected" : ""}>${attribute(template.name)}</option>`).join("")}</select></label>
+        ${field("Nombre del formato", "settingsTemplateName", selectedTemplate.name, "text", "required")}
+        ${field("Asunto", "settingsTemplateSubject", selectedTemplate.subject, "text", "required")}
+        <label class="field">Mensaje<textarea id="settingsTemplateBody" required>${attribute(selectedTemplate.body)}</textarea></label>
+        <p>Puedes usar: {{nombre}}, {{pedido}}, {{productos}}, {{total}} y {{estado}}.</p>
+        <div class="template-actions"><button type="button" class="admin-secondary" data-settings-template-new>Nuevo formato</button><button class="admin-primary">Guardar mensaje</button></div>
+      </form>
       </section>`;
   }
 
@@ -881,6 +894,10 @@
       adminState.emailTemplateId = "__new__";
       renderCampaigns(document.getElementById("adminMain"));
     }
+    if (event.target.closest("[data-settings-template-new]")) {
+      adminState.settingsTemplateId = "__new__";
+      renderSettings(document.getElementById("adminMain"));
+    }
     if (event.target.closest("[data-template-save]")) {
       const name = document.getElementById("campaignTemplateName").value.trim();
       const subject = document.getElementById("campaignSubject").value.trim();
@@ -992,6 +1009,10 @@
       adminState.emailTemplateId = event.target.value;
       renderCampaigns(document.getElementById("adminMain"));
     }
+    if (event.target.id === "settingsTemplate") {
+      adminState.settingsTemplateId = event.target.value;
+      renderSettings(document.getElementById("adminMain"));
+    }
     if (event.target.id === "selectAllSubscribers") {
       document.querySelectorAll(".subscriber-check").forEach((checkbox) => {
         checkbox.checked = event.target.checked;
@@ -1054,6 +1075,22 @@
         body: document.getElementById("campaignBody").value
       }), "_blank", "noopener");
     }
+    if (event.target.id === "settingsTemplateForm") {
+      const name = document.getElementById("settingsTemplateName").value.trim();
+      const subject = document.getElementById("settingsTemplateSubject").value.trim();
+      const body = document.getElementById("settingsTemplateBody").value.trim();
+      if (!name || !subject || !body) return savedToast("Completa nombre, asunto y mensaje");
+      const templates = Store.getEmailTemplates();
+      const existingId = adminState.settingsTemplateId && adminState.settingsTemplateId !== "__new__" ? adminState.settingsTemplateId : "";
+      const template = { id: existingId || `formato-${Date.now()}`, name, subject, body };
+      const index = templates.findIndex((item) => item.id === template.id);
+      if (index >= 0) templates[index] = template; else templates.push(template);
+      await Store.setEmailTemplates(templates);
+      adminState.settingsTemplateId = template.id;
+      adminState.emailTemplateId = template.id;
+      renderSettings(document.getElementById("adminMain"));
+      savedToast("Mensaje guardado");
+    }
     if (event.target.id === "pricingForm") {
       const settings = Store.getSettings();
       settings.rate = Number(document.getElementById("settingRate").value);
@@ -1100,7 +1137,7 @@
       family: document.getElementById("productFamily").value,
       subcategory: document.getElementById("productSubcategory").value,
       description: document.getElementById("productDescription").value.trim(),
-      image: adminState.productImage || document.getElementById("productImageUrl").value.trim() || "assets/lumea-logo-square.png",
+      image: adminState.productImage || document.getElementById("productImageUrl").value.trim() || "assets/lumea-logo-icono.webp",
       active: document.getElementById("productActive").checked,
       variants
     };

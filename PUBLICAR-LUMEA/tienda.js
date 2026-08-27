@@ -94,7 +94,7 @@
     const minimum = pending ? 0 : Math.min(...prices);
     return `<article class="product-card">
       <div class="product-photo">
-        <img src="${product.image}" alt="${product.name}" loading="lazy" decoding="async" onerror="this.src='assets/lumea-logo-square.png'" />
+        <img src="${product.image}" alt="${product.name}" loading="lazy" decoding="async" onerror="this.src='assets/lumea-logo-icono.webp'" />
         <span class="badge">${subcategoryLabel(product)}</span>
         <button data-view="${product.id}" aria-label="Ver ${product.name}"></button>
       </div>
@@ -165,7 +165,7 @@
     ).join("");
     const recommendations = recommendedProducts(product);
     $("#productDetail").innerHTML = `<div class="product-detail">
-      <img src="${product.image}" alt="${product.name}" onerror="this.src='assets/lumea-logo-square.png'" />
+      <img src="${product.image}" alt="${product.name}" onerror="this.src='assets/lumea-logo-icono.webp'" />
       <div><p class="eyebrow">${familyLabel(product)} · ${subcategoryLabel(product)}</p><h2>${product.name}</h2>
         <p class="detail-description">${product.description || "Producto para tus creaciones y fórmulas."}</p>
         <label class="field">Presentación<select id="detailVariant">${options}</select></label>
@@ -174,7 +174,7 @@
         <button class="primary-btn" id="detailAdd" ${availableIndex < 0 ? "disabled" : ""}>${pending ? "Próximamente" : availableIndex < 0 ? "Agotado" : "Agregar a la bolsa ＋"}</button>
       </div></div>
       ${recommendations.length ? `<section class="product-recommendations"><p class="eyebrow">PRODUCTOS RECOMENDADOS</p><h3>También te puede gustar</h3><div>${recommendations.map((item) =>
-        `<button type="button" data-recommended-product="${item.id}"><img src="${item.image}" alt="" loading="lazy" decoding="async" onerror="this.src='assets/lumea-logo-square.png'" /><span>${item.name}</span><small>${subcategoryLabel(item)}</small></button>`
+        `<button type="button" data-recommended-product="${item.id}"><img src="${item.image}" alt="" loading="lazy" decoding="async" onerror="this.src='assets/lumea-logo-icono.webp'" /><span>${item.name}</span><small>${subcategoryLabel(item)}</small></button>`
       ).join("")}</div></section>` : ""}`;
     if (!$("#productDialog").open) $("#productDialog").showModal();
     $("#detailVariant").addEventListener("change", (event) => {
@@ -236,7 +236,7 @@
       const product = productById(line.productId);
       const variant = product.variants[line.variantIndex];
       const key = cartKey(line);
-      return `<article class="cart-line"><img src="${product.image}" alt="${product.name}" onerror="this.src='assets/lumea-logo-square.png'" />
+      return `<article class="cart-line"><img src="${product.image}" alt="${product.name}" onerror="this.src='assets/lumea-logo-icono.webp'" />
         <div><h3>${product.name}</h3><small>${variant.label} · ${Store.money(Store.price(variant, state.settings))}</small>
           <div class="qty"><button data-minus="${key}" aria-label="Quitar uno">−</button><span>${line.qty}</span><button data-plus="${key}" aria-label="Agregar uno">+</button></div>
         </div><button class="remove" data-remove="${key}" aria-label="Eliminar">×</button></article>`;
@@ -542,6 +542,19 @@
   }
 
   document.addEventListener("click", async (event) => {
+    const shopLink = event.target.closest("[data-shop-family]");
+    if (shopLink) {
+      event.preventDefault();
+      state.family = shopLink.dataset.shopFamily || "Todos";
+      state.subcategory = shopLink.dataset.shopSubcategory || "";
+      state.visible = 24;
+      location.hash = "#tienda";
+      routePage();
+      renderTaxonomy();
+      renderProducts();
+      requestAnimationFrame(() => $("#tienda")?.scrollIntoView());
+      return;
+    }
     const pageLink = event.target.closest('a[href="#inicio"],a[href="#tienda"],a[href="#nosotros"],a[href="#informacion"]');
     if (pageLink) {
       event.preventDefault();

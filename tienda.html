@@ -3,17 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="LUMEA: insumos y fragancias en La Habana." />
+    <meta name="description" content="LUMEA: cosmética natural, insumos y fragancias en La Habana." />
     <meta name="theme-color" content="#4f5b4b" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <title>LUMEA · Insumos y fragancias</title>
-    <link rel="stylesheet" href="tienda.css?v=20260826b" />
+    <link rel="icon" href="assets/lumea-logo-icono.png" />
+    <title>LUMEA · Cosmética natural e insumos</title>
+    <link rel="stylesheet" href="tienda.css?v=20260827a" />
   </head>
   <body>
     <div id="storeApp">
-      <div class="announcement"><span>✦ Insumos para crear en La Habana</span><span>Precios finales en CUP</span></div>
+      <div class="announcement"><span>✦ Insumos para crear en La Habana</span><span>Pedido con anticipo del 20%</span></div>
       <header class="site-header">
-        <a class="brand" href="#inicio"><img src="assets/lumea-logo-horizontal-ligero.jpg" alt="LUMEA Cosmetics Store" /></a>
+        <a class="brand" href="#inicio"><img src="assets/lumea-logo-nuevo.webp" alt="LUMEA Cosmética Natural" /></a>
         <nav>
           <a href="#inicio">Inicio</a><button class="track-link" id="categoriesOpen">Tienda</button>
           <button class="track-link" id="trackOpen">Mi pedido</button>
@@ -37,32 +38,38 @@
       <main>
         <section class="hero" id="inicio" data-page="home">
           <div class="hero-copy">
-            <p class="eyebrow">INSUMOS · FRAGANCIAS · CREATIVIDAD</p>
-            <h1>Todo comienza<br />con una <em>idea.</em></h1>
-            <p>Ingredientes, aromas y materiales para convertir tus fórmulas en algo extraordinario.</p>
-            <a class="primary-btn" href="#tienda">Explorar catálogo <span>→</span></a>
+            <p class="eyebrow">COSMÉTICA NATURAL · INSUMOS · FRAGANCIAS</p>
+            <h1>Crea con calma,<br />compra con <em>confianza.</em></h1>
+            <p>Ingredientes, aromas y materiales seleccionados para fórmulas, jabones, velas y cosmética natural en Cuba.</p>
+            <div class="hero-actions"><a class="primary-btn" href="#tienda">Explorar catálogo <span>→</span></a><a class="secondary-hero" href="#informacion">Cómo comprar</a></div>
           </div>
           <div class="hero-image">
-            <img src="assets/lumea-productos-ligero.jpg" alt="Productos orgánicos ecológicos LUMEA" fetchpriority="high" />
+            <img src="assets/lumea-essential-oils.jpeg" alt="Aceites e insumos reales de cosmética natural LUMEA" fetchpriority="high" />
             <span class="hero-stamp">CREA<br /><b>✦</b><br />CON LUMEA</span>
           </div>
         </section>
 
         <section class="benefits" data-page="home">
           <article><i>♧</i><div><b>Catálogo especializado</b><small>Insumos para cada proyecto</small></div></article>
-          <article><i>✦</i><div><b>Precios transparentes</b><small>Compra e importación ya incluidas</small></div></article>
+          <article><i>✦</i><div><b>Pedido verificable</b><small>Número de pedido y comprobante</small></div></article>
           <article><i>⌂</i><div><b>Entregas en La Habana</b><small>Tarifa según tu municipio</small></div></article>
+        </section>
+
+        <section class="trust-strip" data-page="home" aria-label="Compra segura en LUMEA">
+          <article><b>Compra más segura</b><span>Solo solicitamos el 20% para reservar tu pedido; el saldo queda visible antes de confirmar.</span></article>
+          <article><b>Atención por WhatsApp</b><span>Si tienes dudas, puedes escribir a LUMEA antes o después de comprar.</span></article>
+          <article><b>Seguimiento claro</b><span>Conservas tu número de pedido para consultar estado, entrega o cancelación.</span></article>
         </section>
 
         <section class="visual-showcase" data-page="home" aria-label="Inspiración LUMEA">
           <div class="visual-heading"><p class="eyebrow">CREA CON LUMEA</p><h2>Insumos para cada idea.</h2></div>
           <div class="visual-grid">
-            <img src="assets/lumea-soy-candle-supplies.jpeg" alt="Insumos para velas de soya" loading="lazy" decoding="async" />
-            <img src="assets/lumea-shampoo-supplies.jpeg" alt="Insumos para shampoos" loading="lazy" decoding="async" />
-            <img src="assets/lumea-conditioner-supplies.jpeg" alt="Insumos para acondicionador" loading="lazy" decoding="async" />
-            <img src="assets/lumea-essential-oils.jpeg" alt="Aceites esenciales" loading="lazy" decoding="async" />
-            <img src="assets/lumea-dried-herbs.jpeg" alt="Hierbas secas" loading="lazy" decoding="async" />
-            <img src="assets/lumea-soy-candle-supplies-alt.jpeg" alt="Cera e insumos para velas de soya" loading="lazy" decoding="async" />
+            <a class="visual-card" href="#tienda" data-shop-family="Insumos para Velas" data-shop-subcategory="Ceras"><img src="assets/lumea-soy-candle-supplies.jpeg" alt="Insumos para velas de soya" loading="lazy" decoding="async" /><span>Ceras para velas</span></a>
+            <a class="visual-card" href="#tienda" data-shop-family="Insumos para Cosmética Natural e Higiene Personal" data-shop-subcategory="Tensoactivos"><img src="assets/lumea-shampoo-supplies.jpeg" alt="Insumos para shampoos" loading="lazy" decoding="async" /><span>Shampoo y tensoactivos</span></a>
+            <a class="visual-card" href="#tienda" data-shop-family="Insumos para Cosmética Natural e Higiene Personal" data-shop-subcategory="Espesantes & Emulsionantes"><img src="assets/lumea-conditioner-supplies.jpeg" alt="Insumos para acondicionador" loading="lazy" decoding="async" /><span>Acondicionador</span></a>
+            <a class="visual-card" href="#tienda" data-shop-family="Insumos para Jabón" data-shop-subcategory="Aceites Esenciales"><img src="assets/lumea-essential-oils.jpeg" alt="Aceites esenciales" loading="lazy" decoding="async" /><span>Aceites esenciales</span></a>
+            <a class="visual-card" href="#tienda" data-shop-family="Insumos para Cosmética Natural e Higiene Personal" data-shop-subcategory="Hierbas & Arcillas"><img src="assets/lumea-dried-herbs.jpeg" alt="Hierbas secas" loading="lazy" decoding="async" /><span>Hierbas y arcillas</span></a>
+            <a class="visual-card" href="#tienda" data-shop-family="Insumos para Velas" data-shop-subcategory="Fragancias"><img src="assets/lumea-soy-candle-supplies-alt.jpeg" alt="Cera e insumos para velas de soya" loading="lazy" decoding="async" /><span>Fragancias para velas</span></a>
           </div>
         </section>
 
@@ -86,7 +93,7 @@
         </section>
 
         <section class="story" id="nosotros" data-page="home">
-          <img src="assets/lumea-soy-candle-supplies.jpeg" alt="Insumos LUMEA para crear velas de soya" loading="lazy" decoding="async" />
+          <img src="assets/lumea-dried-herbs.jpeg" alt="Hierbas e insumos reales LUMEA para cosmética natural" loading="lazy" decoding="async" />
           <div><p class="eyebrow">NUESTRA ESENCIA</p><h2>Tu proyecto merece<br /><em>buenos comienzos.</em></h2>
             <p>LUMEA reúne insumos y fragancias para personas que disfrutan crear. Cada precio ya contempla la compra, el peso y la gestión de importación, para que elijas con claridad.</p>
             <a href="#tienda">Ver el catálogo completo →</a>
@@ -110,14 +117,14 @@
         </section>
 
         <section class="newsletter" data-page="home">
-          <img src="assets/lumea-logo-square.png" alt="" loading="lazy" decoding="async" />
+          <img src="assets/lumea-logo-icono.webp" alt="" loading="lazy" decoding="async" />
           <div><p class="eyebrow">EL CÍRCULO LUMEA</p><h2>Novedades directo a tu correo.</h2></div>
           <form id="newsletterForm"><input id="newsletterEmail" type="email" placeholder="Tu correo electrónico" required /><button>Quiero unirme →</button></form>
         </section>
       </main>
 
       <footer>
-        <img src="assets/lumea-logo-horizontal-ligero.jpg" alt="LUMEA" loading="lazy" />
+        <img src="assets/lumea-logo-nuevo.webp" alt="LUMEA Cosmética Natural" loading="lazy" />
         <p>Insumos, fragancias e inspiración para crear.</p>
         <div><a href="#inicio">Inicio</a><a href="#nosotros">Nosotros</a><a href="#informacion">Información de compra</a><a href="#admin">Administración</a></div>
         <small>© <span id="year"></span> LUMEA Cosmetics Store · La Habana, Cuba</small>
@@ -145,11 +152,11 @@
     <dialog id="adminProofDialog" class="modal proof-modal"><button class="close" data-close="adminProofDialog" aria-label="Cerrar">×</button><div class="proof-dialog-content" id="adminProofContent"></div></dialog>
     <div class="toast" id="toast" popover="manual"></div>
 
-    <script src="taxonomy.js?v=20260826b"></script>
-    <script src="catalog-manual-products.js?v=20260826b"></script>
+    <script src="taxonomy.js?v=20260827a"></script>
+    <script src="catalog-manual-products.js?v=20260827a"></script>
     <script src="product-descriptions.js?v=20260630b"></script>
-    <script src="store.js?v=20260826b"></script>
-    <script src="tienda.js?v=20260826b"></script>
-    <script src="admin.js?v=20260826b"></script>
+    <script src="store.js?v=20260827a"></script>
+    <script src="tienda.js?v=20260827a"></script>
+    <script src="admin.js?v=20260827a"></script>
   </body>
 </html>

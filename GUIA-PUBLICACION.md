@@ -47,11 +47,12 @@ por ejemplo `tienda.vixo.com.mx`, al mismo Worker desde **Add Custom Domain**.
 
 ## 4. Subir el proyecto a GitHub
 
-Usa la carpeta `SUBIR-A-GITHUB` que acompaña esta entrega.
+Usa la carpeta `SUBIR-A-GITHUB` que acompaña esta entrega. La versión actual
+de los archivos de la tienda es `20260827a`.
 
 1. Entra en GitHub.
 2. Pulsa **New repository**.
-3. Escribe un nombre, por ejemplo `lumea-tienda`.
+3. Escribe un nombre, por ejemplo `lumea` o `lumea-tienda`.
 4. Elige repositorio **Private** mientras terminas la configuración.
 5. Crea el repositorio sin agregar archivos de ejemplo.
 6. En el repositorio pulsa **Add file → Upload files**.
@@ -73,9 +74,14 @@ En Cloudflare:
 5. Autoriza Cloudflare para acceder al repositorio de LUMEA.
 6. Selecciona la rama `main`.
 7. Usa `/` como directorio raíz.
-8. Usa `npm install` como comando de instalación si Cloudflare lo solicita.
-9. Usa `npm run deploy` como comando de publicación.
+8. Deja el comando de build vacío si Cloudflare no lo exige.
+9. Usa `npx wrangler deploy` o `npm run deploy` como comando de publicación.
 10. Guarda la configuración.
+
+Si subes archivos a GitHub y no aparece un despliegue nuevo, revisa de nuevo
+**Settings → Builds**. GitHub puede estar actualizado, pero Cloudflare no
+publica los cambios hasta que el Worker queda conectado al repositorio y se
+ejecuta un despliegue.
 
 A partir de ese momento, cada cambio confirmado en `main` podrá desplegar una
 nueva versión del mismo Worker. Las vinculaciones D1 y R2 están declaradas en
@@ -115,7 +121,8 @@ envío:
 9. Guarda y despliega de nuevo el Worker.
 
 El correo destino configurado es `lumea.cosmeticnatural@gmail.com`.
-El remitente sugerido es `LUMEA <pedidos@vixo.com.mx>`.
+El remitente sugerido es `LUMEA <pedidos@mail.vixo.com.mx>`, porque el dominio
+verificado en Resend es `mail.vixo.com.mx`.
 
 No subas la API Key a GitHub. Debe quedar solo como secreto dentro de
 Cloudflare.

@@ -28,7 +28,7 @@
     supportEmail: ADMIN_EMAIL,
     ordersEmail: ADMIN_EMAIL,
     orderNotificationEmail: ADMIN_EMAIL,
-    orderNotificationFrom: "",
+    orderNotificationFrom: "LUMEA <pedidos@mail.vixo.com.mx>",
     categoryVisibility: {},
     categoryLabels: {},
     cancelHours: 24,
@@ -107,6 +107,22 @@
     }
     window.dispatchEvent(new CustomEvent("lumea:data", { detail: key }));
     return value;
+  }
+
+  function normalizeEmail(email) {
+    const value = String(email || "").trim().toLowerCase();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : "";
+  }
+
+  function rememberLocalSubscriber(email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized) return false;
+    const subscribers = read(KEYS.subscribers, []);
+    if (!subscribers.includes(normalized)) {
+      subscribers.push(normalized);
+      write(KEYS.subscribers, subscribers);
+    }
+    return true;
   }
 
   async function api(path, options = {}) {
@@ -487,13 +503,14 @@
       return saved;
     },
     async subscribe(email) {
+      const normalized = normalizeEmail(email);
+      if (!normalized) throw new Error("Correo inválido.");
       if (apiEnabled) {
-        await api("/api/subscribers", { method: "POST", body: JSON.stringify({ email }) });
+        await api("/api/subscribers", { method: "POST", body: JSON.stringify({ email: normalized }) });
+        rememberLocalSubscriber(normalized);
         return true;
       }
-      const subscribers = read(KEYS.subscribers, []);
-      if (!subscribers.includes(email)) subscribers.push(email);
-      write(KEYS.subscribers, subscribers);
+      rememberLocalSubscriber(normalized);
       return true;
     },
     async saveOrder(order) {
@@ -503,11 +520,13 @@
         const orders = read(KEYS.orders, []);
         orders.unshift(saved);
         write(KEYS.orders, orders);
+        rememberLocalSubscriber(saved.customer?.email || order.customer?.email);
         return saved;
       }
       const orders = read(KEYS.orders, []);
       orders.unshift(order);
       write(KEYS.orders, orders);
+      rememberLocalSubscriber(order.customer?.email);
       return order;
     }
   };
