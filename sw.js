@@ -1,14 +1,14 @@
-const CACHE_VERSION = "lumea-light-v8";
+const CACHE_VERSION = "lumea-light-v9";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/tienda.css?v=20260827b",
-  "/taxonomy.js?v=20260827b",
-  "/catalog-manual-products.js?v=20260827b",
+  "/tienda.css?v=20260827c",
+  "/taxonomy.js?v=20260827c",
+  "/catalog-manual-products.js?v=20260827c",
   "/product-descriptions.js?v=20260630b",
-  "/store.js?v=20260827b",
-  "/tienda.js?v=20260827b",
-  "/admin.js?v=20260827b",
+  "/store.js?v=20260827c",
+  "/tienda.js?v=20260827c",
+  "/admin.js?v=20260827c",
   "/assets/lumea-logo-nuevo.webp",
   "/assets/lumea-logo-icono.webp",
   "/assets/lumea-logo-icono.png",

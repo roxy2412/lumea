@@ -11,6 +11,8 @@
     productCategory: "",
     productPage: 1,
     selectedProducts: new Set(),
+    inventoryQuery: "",
+    inventoryCategory: "",
     emailTemplateId: "",
     settingsTemplateId: "",
     orderView: "active"
@@ -69,7 +71,7 @@
 
   function renderShell() {
     const labels = {
-      dashboard: "Resumen", products: "Productos", categories: "Categorías", orders: "Pedidos",
+      dashboard: "Resumen", products: "Productos", inventory: "Inventario", categories: "Categorías", orders: "Pedidos",
       delivery: "Municipios y entregas", bank: "Cuenta bancaria",
       campaigns: "Correos masivos", reviews: "Opiniones", settings: "Configuración"
     };
@@ -94,6 +96,7 @@
     ({
       dashboard: renderDashboard,
       products: renderProducts,
+      inventory: renderInventory,
       categories: renderCategories,
       orders: renderOrders,
       delivery: renderDelivery,
@@ -167,6 +170,87 @@
       || left.name.localeCompare(right.name, "es");
   }
 
+  function inventoryMeasure(variant = {}) {
+    const label = String(variant.label || "");
+    const labelMatch = label.match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|g|gr|gramos?|ml|l|lt|lts|unidad|unidades)\b/i);
+    let amount = Number(variant.inventoryAmount ?? variant.amount);
+    let unit = String(variant.unit || labelMatch?.[2] || "unidad").toLowerCase();
+    if ((!amount || amount <= 0) && labelMatch) amount = Number(labelMatch[1].replace(",", "."));
+    if (!amount || amount <= 0) amount = 1;
+    if (/^(kg|kgs)$/i.test(unit)) return { amount: amount * 1000, unit: "g", type: "gramos" };
+    if (/^(g|gr|gramos?)$/i.test(unit)) return { amount, unit: "g", type: "gramos" };
+    if (/^(l|lt|lts)$/i.test(unit)) return { amount: amount * 1000, unit: "ml", type: "ml" };
+    if (/^ml$/i.test(unit)) return { amount, unit: "ml", type: "ml" };
+    return { amount: Math.max(1, Math.round(amount)), unit: "unidad", type: "unidades" };
+  }
+
+  function formatInventoryAmount(value, measure) {
+    if (!Number.isFinite(value)) return "Sin límite";
+    const rounded = measure.unit === "unidad" ? Math.round(value) : Math.round(value * 10) / 10;
+    if (measure.unit === "unidad") return `${rounded} ${rounded === 1 ? "unidad" : "unidades"}`;
+    return `${rounded.toLocaleString("es-MX")} ${measure.unit}`;
+  }
+
+  function inventoryUsage(product, variant, measure) {
+    const orders = Store.getOrders();
+    return orders.reduce((totals, order) => {
+      const lines = (order.lines || []).filter((line) => line.productId === product.id && line.variant === variant.label);
+      const amount = lines.reduce((sum, line) => sum + (Number(line.qty) || 0) * measure.amount, 0);
+      if (!amount) return totals;
+      if (["Entregado", "Recogido"].includes(order.status)) totals.sold += amount;
+      else if (order.status !== "Cancelado") totals.reserved += amount;
+      return totals;
+    }, { reserved: 0, sold: 0 });
+  }
+
+  function inventoryAvailable(product, variant, measure) {
+    const sharedInventory = product.inventoryAvailable !== "" && product.inventoryAvailable != null
+      ? Number(product.inventoryAvailable)
+      : NaN;
+    if (Number.isFinite(sharedInventory)) return Math.max(0, sharedInventory);
+    if (variant.stock === "" || variant.stock == null) return Infinity;
+    return Math.max(0, Number(variant.stock) || 0) * measure.amount;
+  }
+
+  function inventoryStatus(available, measure) {
+    if (!Number.isFinite(available)) return { label: "Sin límite", className: "unlimited" };
+    if (available <= 0) return { label: "Agotado", className: "out" };
+    const lowLimit = measure.unit === "unidad" ? 3 : 50;
+    if (available <= lowLimit) return { label: "Bajo", className: "low" };
+    return { label: "Disponible", className: "ok" };
+  }
+
+  function inventoryCostCup(variant) {
+    const settings = Store.getSettings();
+    const supplierMxn = Number(variant.bioaleiPriceMxn ?? variant.mxn ?? 0);
+    const landedMxn = supplierMxn + Store.shippingCostMxn(variant, settings);
+    return Math.round(landedMxn * Number(settings.rate || 0));
+  }
+
+  function inventoryRows() {
+    return Store.getProducts().flatMap((product) => (product.variants || []).map((variant) => {
+      const measure = inventoryMeasure(variant);
+      const available = inventoryAvailable(product, variant, measure);
+      const usage = inventoryUsage(product, variant, measure);
+      const status = inventoryStatus(available, measure);
+      const sale = Store.price(variant);
+      const cost = inventoryCostCup(variant);
+      return {
+        product,
+        variant,
+        measure,
+        available,
+        reserved: usage.reserved,
+        sold: usage.sold,
+        status,
+        cost,
+        sale,
+        profit: sale - cost,
+        category: productCategoryLabel(product)
+      };
+    }));
+  }
+
   function renderProductResults() {
     const results = document.getElementById("adminProductResults");
     if (!results) return;
@@ -199,6 +283,61 @@
       }).join("")}</tbody></table>
       ${products.length ? `<div class="product-pagination"><button class="admin-secondary" data-product-page="${adminState.productPage - 1}" ${adminState.productPage === 1 ? "disabled" : ""}>← Anterior</button><button class="admin-secondary" data-product-page="${adminState.productPage + 1}" ${adminState.productPage === pageCount ? "disabled" : ""}>Siguiente →</button></div>` : '<p class="empty-orders">No hay productos en esta categoría.</p>'}`;
     updateProductBulkState();
+  }
+
+  function renderInventory(main) {
+    const allRows = inventoryRows();
+    const categories = [...new Set(allRows.map((row) => row.category))].sort((left, right) => left.localeCompare(right, "es"));
+    const low = allRows.filter((row) => row.status.className === "low").length;
+    const out = allRows.filter((row) => row.status.className === "out").length;
+    const finiteRows = allRows.filter((row) => Number.isFinite(row.available) && row.measure.amount > 0);
+    const value = finiteRows.reduce((sum, row) => sum + Math.floor(row.available / row.measure.amount) * row.sale, 0);
+    const profit = finiteRows.reduce((sum, row) => sum + Math.floor(row.available / row.measure.amount) * row.profit, 0);
+    main.innerHTML = `${top("Inventario", "Todo queda en una sola línea por presentación: inventario, costo, venta y ganancia.", '<button class="admin-primary" data-print-inventory>Imprimir inventario</button>')}
+      <section class="stat-grid inventory-stats">
+        <article class="stat-card"><span>Presentaciones</span><b>${allRows.length}</b></article>
+        <article class="stat-card"><span>Bajo inventario</span><b>${low}</b></article>
+        <article class="stat-card"><span>Agotadas</span><b>${out}</b></article>
+        <article class="stat-card"><span>Valor venta estimado</span><b>${Store.money(value)}</b></article>
+        <article class="stat-card"><span>Ganancia estimada</span><b>${Store.money(profit)}</b></article>
+      </section>
+      <section class="admin-panel inventory-panel">
+        <div class="admin-panel-head"><h2>Inventario en una línea</h2><div class="product-filter-controls">
+          <input id="adminInventorySearch" type="search" value="${attribute(adminState.inventoryQuery)}" placeholder="Buscar producto…" />
+          <select id="adminInventoryCategory"><option value="">Todas las categorías</option>${categories.map((category) => `<option value="${attribute(category)}" ${adminState.inventoryCategory === category ? "selected" : ""}>${attribute(category)}</option>`).join("")}</select>
+          <button class="admin-secondary" data-print-inventory>Imprimir</button>
+        </div></div>
+        <div id="adminInventoryResults"></div>
+        <p class="inventory-note">Disponible muestra el inventario actual. Reservado sale de pedidos activos; vendido sale de pedidos entregados o recogidos. Costo, venta y ganancia son estimados por presentación.</p>
+      </section>`;
+    renderInventoryResults();
+  }
+
+  function renderInventoryResults() {
+    const results = document.getElementById("adminInventoryResults");
+    if (!results) return;
+    const query = adminState.inventoryQuery.toLocaleLowerCase("es");
+    const rows = inventoryRows().filter((row) =>
+      (!adminState.inventoryCategory || row.category === adminState.inventoryCategory)
+      && (!query || `${row.product.name} ${row.variant.label} ${row.category}`.toLocaleLowerCase("es").includes(query))
+    ).sort((left, right) => compareProducts(left.product, right.product) || left.variant.label.localeCompare(right.variant.label, "es"));
+    results.innerHTML = `<div class="inventory-table-wrap">
+      <table class="admin-table inventory-table">
+        <thead><tr><th>Producto</th><th>Tipo</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Estado</th><th>Costo</th><th>Venta</th><th>Ganancia</th><th></th></tr></thead>
+        <tbody>${rows.length ? rows.map((row) => `<tr>
+          <td><b>${attribute(row.product.name)} · ${attribute(row.variant.label)}</b> <small>${attribute(row.category)}</small></td>
+          <td>${attribute(row.measure.type)}</td>
+          <td>${formatInventoryAmount(row.available, row.measure)}</td>
+          <td>${formatInventoryAmount(row.reserved, row.measure)}</td>
+          <td>${formatInventoryAmount(row.sold, row.measure)}</td>
+          <td><span class="inventory-pill ${row.status.className}">${row.status.label}</span></td>
+          <td>${Store.money(row.cost)}</td>
+          <td>${Store.money(row.sale)}</td>
+          <td class="${row.profit < 0 ? "negative-money" : ""}">${Store.money(row.profit)}</td>
+          <td class="inventory-actions"><button data-product-edit="${row.product.id}">Editar</button></td>
+        </tr>`).join("") : `<tr><td colspan="10">No hay productos para mostrar.</td></tr>`}</tbody>
+      </table>
+    </div>`;
   }
 
   function updateProductBulkState() {
@@ -748,6 +887,7 @@
       renderProductResults();
     }
     if (event.target.closest("[data-product-bulk-edit]")) bulkProductEditor();
+    if (event.target.closest("[data-print-inventory]")) window.print();
     if (event.target.closest("[data-product-bulk-delete]")) {
       const ids = [...adminState.selectedProducts];
       if (ids.length && confirm(`¿Eliminar ${ids.length} producto${ids.length === 1 ? "" : "s"} del catálogo?`)) {
@@ -998,6 +1138,11 @@
       clearTimeout(window.adminSearchTimer);
       window.adminSearchTimer = setTimeout(renderProductResults, 180);
     }
+    if (event.target.id === "adminInventorySearch") {
+      adminState.inventoryQuery = event.target.value;
+      clearTimeout(window.adminInventorySearchTimer);
+      window.adminInventorySearchTimer = setTimeout(renderInventoryResults, 180);
+    }
     if (event.target.id === "productImageUrl") {
       adminState.productImage = event.target.value;
       document.getElementById("productImagePreview").src = adminState.productImage;
@@ -1010,6 +1155,10 @@
       adminState.productCategory = event.target.value;
       adminState.productPage = 1;
       renderProductResults();
+    }
+    if (event.target.id === "adminInventoryCategory") {
+      adminState.inventoryCategory = event.target.value;
+      renderInventoryResults();
     }
     if (event.target.id === "selectAllProducts") {
       document.querySelectorAll(".product-check").forEach((checkbox) => {
