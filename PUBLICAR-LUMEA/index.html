@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="LUMEA: insumos y fragancias en La Habana." />
+    <meta name="theme-color" content="#4f5b4b" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <title>LUMEA · Insumos y fragancias</title>
+    <link rel="stylesheet" href="tienda.css?v=20260826a" />
+  </head>
+  <body>
+    <div id="storeApp">
+      <div class="announcement"><span>✦ Insumos para crear en La Habana</span><span>Precios finales en CUP</span></div>
+      <header class="site-header">
+        <a class="brand" href="#inicio"><img src="assets/lumea-logo-horizontal-ligero.jpg" alt="LUMEA Cosmetics Store" /></a>
+        <nav>
+          <a href="#inicio">Inicio</a><button class="track-link" id="categoriesOpen">Tienda</button>
+          <button class="track-link" id="trackOpen">Mi pedido</button>
+        </nav>
+        <div class="header-actions">
+          <a class="admin-access" href="#admin" aria-label="Acceso administrador">Admin</a>
+          <button class="icon-btn" id="searchOpen" aria-label="Buscar">⌕</button>
+          <button class="cart-btn" id="cartOpen" aria-label="Abrir carrito">Bolsa <b id="cartCount">0</b></button>
+          <button class="menu-btn" id="menuOpen" aria-label="Abrir menú">☰</button>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+          <a href="#inicio">Inicio</a><button id="mobileCategories">Tienda</button>
+          <a href="#nosotros">Nuestra esencia</a><button id="mobileTrack">Mi pedido</button><a href="#admin">Administración</a>
+        </div>
+        <div class="header-taxonomy" id="headerTaxonomy">
+          <div class="header-taxonomy-title"><p class="eyebrow">TIENDA</p><button id="categoriesClose" aria-label="Cerrar tienda">×</button></div>
+          <div class="taxonomy-menu" id="taxonomyMenu"></div>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" id="inicio" data-page="home">
+          <div class="hero-copy">
+            <p class="eyebrow">INSUMOS · FRAGANCIAS · CREATIVIDAD</p>
+            <h1>Todo comienza<br />con una <em>idea.</em></h1>
+            <p>Ingredientes, aromas y materiales para convertir tus fórmulas en algo extraordinario.</p>
+            <a class="primary-btn" href="#tienda">Explorar catálogo <span>→</span></a>
+          </div>
+          <div class="hero-image">
+            <img src="assets/lumea-productos-ligero.jpg" alt="Productos orgánicos ecológicos LUMEA" fetchpriority="high" />
+            <span class="hero-stamp">CREA<br /><b>✦</b><br />CON LUMEA</span>
+          </div>
+        </section>
+
+        <section class="benefits" data-page="home">
+          <article><i>♧</i><div><b>Catálogo especializado</b><small>Insumos para cada proyecto</small></div></article>
+          <article><i>✦</i><div><b>Precios transparentes</b><small>Compra e importación ya incluidas</small></div></article>
+          <article><i>⌂</i><div><b>Entregas en La Habana</b><small>Tarifa según tu municipio</small></div></article>
+        </section>
+
+        <section class="visual-showcase" data-page="home" aria-label="Inspiración LUMEA">
+          <div class="visual-heading"><p class="eyebrow">CREA CON LUMEA</p><h2>Insumos para cada idea.</h2></div>
+          <div class="visual-grid">
+            <img src="assets/lumea-soy-candle-supplies.jpeg" alt="Insumos para velas de soya" loading="lazy" decoding="async" />
+            <img src="assets/lumea-shampoo-supplies.jpeg" alt="Insumos para shampoos" loading="lazy" decoding="async" />
+            <img src="assets/lumea-conditioner-supplies.jpeg" alt="Insumos para acondicionador" loading="lazy" decoding="async" />
+            <img src="assets/lumea-essential-oils.jpeg" alt="Aceites esenciales" loading="lazy" decoding="async" />
+            <img src="assets/lumea-dried-herbs.jpeg" alt="Hierbas secas" loading="lazy" decoding="async" />
+            <img src="assets/lumea-soy-candle-supplies-alt.jpeg" alt="Cera e insumos para velas de soya" loading="lazy" decoding="async" />
+          </div>
+        </section>
+
+        <section class="section shop" id="tienda" data-page="shop" hidden>
+          <div class="section-title">
+            <div><p class="eyebrow">CATÁLOGO LUMEA</p><h2>Todo para crear</h2><p id="productCount"></p></div>
+            <div class="shop-actions">
+              <label class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar producto…" /></label>
+              <select id="categoryFilter" aria-label="Categoría">
+                <option value="Todos">Todos los insumos</option>
+                <option value="Insumos para Jabón">Insumos para Jabón</option>
+                <option value="Insumos para Cosmética Natural e Higiene Personal">Cosmética e Higiene Personal</option>
+                <option value="Insumos para Velas">Insumos para Velas</option>
+              </select>
+            </div>
+          </div>
+          <p class="shop-notice">Los precios están sujetos a cambios. El color, tono o apariencia del producto puede variar ligeramente según el lote, la pantalla y la iluminación de la fotografía.</p>
+          <div class="product-grid" id="productGrid"></div>
+          <div class="empty" id="emptyProducts">No encontramos coincidencias.</div>
+          <button class="outline-btn" id="loadMore">Mostrar más productos ↓</button>
+        </section>
+
+        <section class="story" id="nosotros" data-page="home">
+          <img src="assets/lumea-soy-candle-supplies.jpeg" alt="Insumos LUMEA para crear velas de soya" loading="lazy" decoding="async" />
+          <div><p class="eyebrow">NUESTRA ESENCIA</p><h2>Tu proyecto merece<br /><em>buenos comienzos.</em></h2>
+            <p>LUMEA reúne insumos y fragancias para personas que disfrutan crear. Cada precio ya contempla la compra, el peso y la gestión de importación, para que elijas con claridad.</p>
+            <a href="#tienda">Ver el catálogo completo →</a>
+          </div>
+        </section>
+
+        <section class="commerce-info" id="informacion" data-page="home">
+          <div class="commerce-info-head">
+            <p class="eyebrow">INFORMACIÓN DE COMPRA</p>
+            <h2>Compra con claridad.</h2>
+            <p>Conoce los tiempos, condiciones y canales de atención antes de solicitar tu pedido.</p>
+          </div>
+          <div class="commerce-info-grid">
+            <article><span>01</span><h3>WhatsApp</h3><p>Escríbenos al <a id="commerceWhatsapp" href="https://wa.me/5353691859" target="_blank" rel="noopener">+53 5369 1859</a> para recibir atención.</p></article>
+            <article><span>02</span><h3>Preparación</h3><p>El pedido se prepara en un plazo aproximado de <span id="commercePreparation">1 a 2 días</span>.</p></article>
+            <article><span>03</span><h3>Entrega</h3><p>El tiempo estimado de entrega es de <span id="commerceDelivery">7 a 10 días después de la preparación</span>.</p></article>
+            <article><span>04</span><h3>Anticipo</h3><p id="commerceDeposit">Para solicitar el pedido se abona el 20% del total mediante tarjeta y se adjunta el comprobante. El saldo se paga según la modalidad seleccionada.</p></article>
+            <article><span>05</span><h3>Cancelación</h3><p id="commerceCancellation">Puedes cancelar durante las primeras 24 horas y recibir la devolución del anticipo. Después de ese plazo puedes cancelar, pero el anticipo no es reembolsable.</p></article>
+            <article><span>06</span><h3>Privacidad</h3><p id="commercePrivacy">Usamos tus datos únicamente para procesar el pedido, coordinar la entrega y comunicarnos contigo. No vendemos ni compartimos tu información con terceros ajenos al servicio.</p></article>
+          </div>
+        </section>
+
+        <section class="newsletter" data-page="home">
+          <img src="assets/lumea-logo-square.png" alt="" loading="lazy" decoding="async" />
+          <div><p class="eyebrow">EL CÍRCULO LUMEA</p><h2>Novedades directo a tu correo.</h2></div>
+          <form id="newsletterForm"><input id="newsletterEmail" type="email" placeholder="Tu correo electrónico" required /><button>Quiero unirme →</button></form>
+        </section>
+      </main>
+
+      <footer>
+        <img src="assets/lumea-logo-horizontal-ligero.jpg" alt="LUMEA" loading="lazy" />
+        <p>Insumos, fragancias e inspiración para crear.</p>
+        <div><a href="#inicio">Inicio</a><a href="#nosotros">Nosotros</a><a href="#informacion">Información de compra</a><a href="#admin">Administración</a></div>
+        <small>© <span id="year"></span> LUMEA Cosmetics Store · La Habana, Cuba</small>
+      </footer>
+    </div>
+
+    <section id="adminApp" hidden aria-label="Administración LUMEA"></section>
+
+    <div class="overlay" id="overlay"></div>
+    <aside class="drawer" id="cartDrawer" aria-hidden="true">
+      <header><div><p class="eyebrow">TU SELECCIÓN</p><h2>Bolsa <span id="drawerCount">(0)</span></h2></div><button id="cartClose" aria-label="Cerrar carrito">×</button></header>
+      <div class="cart-lines" id="cartLines"></div>
+      <div class="cart-empty" id="cartEmpty"><b>♡</b><h3>Tu bolsa está esperando</h3><p>Agrega algo bonito para comenzar.</p></div>
+      <div class="cart-total" id="cartTotalBox"><div><span>Productos</span><b id="cartSubtotal">0 CUP</b></div><small>La entrega local se calcula al elegir el municipio.</small><button class="primary-btn" id="checkoutOpen">Continuar pedido →</button></div>
+    </aside>
+
+    <dialog id="productDialog" class="modal product-modal"><button class="close" data-close="productDialog" aria-label="Cerrar">×</button><div id="productDetail"></div></dialog>
+    <dialog id="checkoutDialog" class="modal checkout-modal"><button class="close" data-close="checkoutDialog" aria-label="Cerrar">×</button><div id="checkoutContent"></div></dialog>
+    <dialog id="trackDialog" class="modal track-modal"><button class="close" data-close="trackDialog" aria-label="Cerrar">×</button>
+      <div class="modal-pad"><p class="eyebrow">CONSULTA O CANCELA</p><h2>Mi pedido</h2><p>Introduce el número del pedido y el teléfono usado en la compra.</p>
+        <form id="trackForm"><label>Número de pedido<input id="trackNumber" required placeholder="LUM-…" /></label><label>Teléfono<input id="trackPhone" required /></label><button class="primary-btn">Consultar</button></form>
+        <div id="trackResult"></div>
+      </div>
+    </dialog>
+    <dialog id="adminProofDialog" class="modal proof-modal"><button class="close" data-close="adminProofDialog" aria-label="Cerrar">×</button><div class="proof-dialog-content" id="adminProofContent"></div></dialog>
+    <div class="toast" id="toast" popover="manual"></div>
+
+    <script src="taxonomy.js?v=20260826a"></script>
+    <script src="catalog-manual-products.js?v=20260826a"></script>
+    <script src="product-descriptions.js?v=20260630b"></script>
+    <script src="store.js?v=20260826a"></script>
+    <script src="tienda.js?v=20260826a"></script>
+    <script src="admin.js?v=20260826a"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lumea-vixo",
+  "main": "cloudflare/worker.js",
+  "no_bundle": true,
+  "find_additional_modules": false,
+  "compatibility_date": "2026-06-29",
+  "assets": {
+    "directory": "./PUBLICAR-LUMEA",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lumea-store",
+      "database_id": "b37e2791-3b2f-468e-a770-4cd9d0fcc288"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PROOFS",
+      "bucket_name": "lumea-comprobantes"
+    }
+  ],
+  "vars": {
+    "ADMIN_EMAIL": "lumea.cosmeticnatural@gmail.com",
+    "ORDER_NOTIFICATION_EMAIL": "lumea.cosmeticnatural@gmail.com",
+    "ORDER_NOTIFICATION_FROM": "LUMEA <pedidos@vixo.com.mx>"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "LUMEA Cosmetics Store",
+  "short_name": "LUMEA",
+  "description": "Insumos y fragancias en La Habana.",
+  "lang": "es",
+  "start_url": "/#inicio",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f4ed",
+  "theme_color": "#4f5b4b",
+  "icons": [
+    {
+      "src": "/assets/lumea-logo-square.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
