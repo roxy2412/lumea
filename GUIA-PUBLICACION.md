@@ -48,7 +48,7 @@ por ejemplo `tienda.vixo.com.mx`, al mismo Worker desde **Add Custom Domain**.
 ## 4. Subir el proyecto a GitHub
 
 Usa la carpeta `SUBIR-A-GITHUB` que acompaña esta entrega. La versión actual
-de los archivos de la tienda es `20260827d`.
+de los archivos de la tienda es `20260827e`.
 
 1. Entra en GitHub.
 2. Pulsa **New repository**.
@@ -102,7 +102,7 @@ npm run deploy
 ```
 
 Wrangler mostrará la versión publicada. Después abre
-`https://lumea.vixo.com.mx/?v=20260827d` y actualiza la página. Si ves la
+`https://lumea.vixo.com.mx/?v=20260827e` y actualiza la página. Si ves la
 versión anterior, presiona `Ctrl + F5`.
 
 ## Qué incluye esta versión
@@ -124,6 +124,10 @@ versión anterior, presiona `Ctrl + F5`.
   vea en miniatura.
 - En el editor de productos, cada presentación permite escribir **Cantidad
   inicial** o marcar **Sin límite**.
+- Inventario compacto en pantalla completa, con tarjetas para filtrar por
+  **Bajo inventario** y **Agotadas**.
+- Opción apagada por defecto para enviar correos automáticos cuando cambia el
+  estado de un pedido.
 
 ## 6.1. Activar correo automático de nuevos pedidos
 

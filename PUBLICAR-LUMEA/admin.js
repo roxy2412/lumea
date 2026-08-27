@@ -13,6 +13,7 @@
     selectedProducts: new Set(),
     inventoryQuery: "",
     inventoryCategory: "",
+    inventoryFilter: "",
     emailTemplateId: "",
     settingsTemplateId: "",
     orderView: "active"
@@ -296,9 +297,9 @@
     const profit = finiteRows.reduce((sum, row) => sum + Math.floor(row.available / row.measure.amount) * row.profit, 0);
     main.innerHTML = `${top("Inventario", "Todo queda en una sola línea por presentación: inventario, costo, venta y ganancia.", '<button class="admin-primary" data-print-inventory>Imprimir inventario</button>')}
       <section class="stat-grid inventory-stats">
-        <article class="stat-card"><span>Presentaciones</span><b>${allRows.length}</b></article>
-        <article class="stat-card"><span>Bajo inventario</span><b>${low}</b></article>
-        <article class="stat-card"><span>Agotadas</span><b>${out}</b></article>
+        <button type="button" class="stat-card inventory-filter-card ${adminState.inventoryFilter === "" ? "active" : ""}" data-inventory-filter=""><span>Presentaciones</span><b>${allRows.length}</b></button>
+        <button type="button" class="stat-card inventory-filter-card ${adminState.inventoryFilter === "low" ? "active" : ""}" data-inventory-filter="low"><span>Bajo inventario</span><b>${low}</b></button>
+        <button type="button" class="stat-card inventory-filter-card ${adminState.inventoryFilter === "out" ? "active" : ""}" data-inventory-filter="out"><span>Agotadas</span><b>${out}</b></button>
         <article class="stat-card"><span>Valor venta estimado</span><b>${Store.money(value)}</b></article>
         <article class="stat-card"><span>Ganancia estimada</span><b>${Store.money(profit)}</b></article>
       </section>
@@ -320,9 +321,12 @@
     const query = adminState.inventoryQuery.toLocaleLowerCase("es");
     const rows = inventoryRows().filter((row) =>
       (!adminState.inventoryCategory || row.category === adminState.inventoryCategory)
+      && (!adminState.inventoryFilter || row.status.className === adminState.inventoryFilter)
       && (!query || `${row.product.name} ${row.variant.label} ${row.category}`.toLocaleLowerCase("es").includes(query))
     ).sort((left, right) => compareProducts(left.product, right.product) || left.variant.label.localeCompare(right.variant.label, "es"));
+    const filterText = adminState.inventoryFilter === "low" ? " · bajo inventario" : adminState.inventoryFilter === "out" ? " · agotadas" : "";
     results.innerHTML = `<div class="inventory-table-wrap">
+      <p class="inventory-results-count">${rows.length} resultado${rows.length === 1 ? "" : "s"}${filterText}</p>
       <table class="admin-table inventory-table">
         <thead><tr><th>Producto</th><th>Tipo</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Estado</th><th>Costo</th><th>Venta</th><th>Ganancia</th><th></th></tr></thead>
         <tbody>${rows.length ? rows.map((row) => `<tr>
@@ -709,11 +713,13 @@
     }
     if (["Entregado", "Recogido"].includes(status) && updated.archived) updated.archivedAt ||= updated.updatedAt;
     try {
-      await Store.saveAdminOrder(updated);
+      const oldStatus = order.status;
+      const saved = await Store.saveAdminOrder(updated);
+      const emailResult = await sendAutomaticStatusEmail(saved, oldStatus);
       document.getElementById("adminOrderDialog")?.close();
       await Store.refreshAdminData();
       renderOrders(document.getElementById("adminMain"));
-      savedToast("Pedido guardado");
+      savedToast(statusEmailToast("Pedido guardado", emailResult));
     } catch (error) {
       savedToast(error.message || "No se pudo guardar el pedido");
     }
@@ -810,6 +816,30 @@
     return { subject: replace(template.subject), body: replace(template.body) };
   }
 
+  function statusEmailTemplateId(status) {
+    if (status === "Pedido recibido") return "gracias-pedido";
+    if (status === "Listo para entrega") return "pedido-listo";
+    if (["Enviado", "En proceso de entrega"].includes(status)) return "pedido-en-camino";
+    return "actualizacion-estado";
+  }
+
+  async function sendAutomaticStatusEmail(order, oldStatus = "") {
+    const settings = Store.getSettings();
+    if (!settings.autoStatusEmails || oldStatus === order.status || !order?.customer?.email) return { skipped: true };
+    try {
+      await Store.sendOrderEmail(order.id, statusEmailTemplateId(order.status));
+      return { sent: true };
+    } catch (error) {
+      return { failed: true, error };
+    }
+  }
+
+  function statusEmailToast(baseMessage, result) {
+    if (result?.sent) return `${baseMessage} y correo enviado`;
+    if (result?.failed) return `${baseMessage}, pero no se pudo enviar el correo automático`;
+    return baseMessage;
+  }
+
   function renderSettings(main) {
     const settings = Store.getSettings();
     const templates = Store.getEmailTemplates();
@@ -834,6 +864,8 @@
         ${field("WhatsApp de contacto", "settingWhatsapp", settings.whatsapp)}
         ${field("Correo que recibe nuevos pedidos", "settingOrderNotificationEmail", settings.orderNotificationEmail || settings.ordersEmail || "", "email")}
         ${field("Remitente del aviso automático", "settingOrderNotificationFrom", settings.orderNotificationFrom || "", "text", "placeholder='LUMEA <pedidos@mail.vixo.com.mx>'")}
+        <label class="field switch-field"><input id="settingAutoStatusEmails" type="checkbox" ${settings.autoStatusEmails ? "checked" : ""} /> Enviar correo automático al cliente cuando cambie el estado del pedido</label>
+        <p class="settings-hint">Usa el mensaje “Actualización de estado” y los formatos especiales para pedido en camino o listo para entrega.</p>
         ${field("Tiempo de preparación", "settingPreparationTime", settings.preparationTime)}
         ${field("Tiempo de entrega", "settingDeliveryTime", settings.deliveryTime)}
         <label class="field">Punto de recogida<textarea id="settingPickup" rows="4">${settings.pickupAddress}</textarea></label>
@@ -891,6 +923,11 @@
     }
     if (event.target.closest("[data-product-bulk-edit]")) bulkProductEditor();
     if (event.target.closest("[data-print-inventory]")) window.print();
+    const inventoryFilter = event.target.closest("[data-inventory-filter]");
+    if (inventoryFilter) {
+      adminState.inventoryFilter = inventoryFilter.dataset.inventoryFilter || "";
+      renderInventory(document.getElementById("adminMain"));
+    }
     if (event.target.closest("[data-product-bulk-delete]")) {
       const ids = [...adminState.selectedProducts];
       if (ids.length && confirm(`¿Eliminar ${ids.length} producto${ids.length === 1 ? "" : "s"} del catálogo?`)) {
@@ -1013,7 +1050,7 @@
         error.textContent = "Selecciona al menos un pedido.";
       } else {
         const status = document.getElementById("bulkOrderStatus").value;
-        await Promise.all(selected.map((order) => {
+        const updatedOrders = await Promise.all(selected.map((order) => {
           const updated = {
             ...order,
             status,
@@ -1023,10 +1060,14 @@
             updated.cancelledAt = updated.updatedAt;
             updated.cancellationRefund = Store.cancellationRefundable(order);
           }
-          return Store.saveAdminOrder(updated);
+          return Store.saveAdminOrder(updated).then((saved) => ({ saved, oldStatus: order.status }));
         }));
+        const emailResults = await Promise.all(updatedOrders.map(({ saved, oldStatus }) => sendAutomaticStatusEmail(saved, oldStatus)));
+        const sent = emailResults.filter((result) => result.sent).length;
+        const failed = emailResults.filter((result) => result.failed).length;
         renderOrders(document.getElementById("adminMain"));
-        savedToast(`Estado aplicado a ${selected.length} pedido${selected.length === 1 ? "" : "s"}`);
+        const emailText = sent || failed ? ` · correos enviados: ${sent}${failed ? ` · fallidos: ${failed}` : ""}` : "";
+        savedToast(`Estado aplicado a ${selected.length} pedido${selected.length === 1 ? "" : "s"}${emailText}`);
       }
     }
     if (event.target.closest("[data-bulk-order-archive]")) {
@@ -1213,14 +1254,16 @@
     if (event.target.id === "orderFulfillment") recalcOrderEditor();
     if (event.target.matches("[data-order-status]")) {
       const orders = Store.getOrders(); const order = orders.find((item) => item.id === event.target.dataset.orderStatus);
+      const oldStatus = order.status;
       order.status = event.target.value; order.updatedAt = new Date().toISOString();
       if (order.status === "Cancelado") {
         order.cancelledAt = order.updatedAt;
         order.cancellationRefund = Store.cancellationRefundable(order);
       }
-      await Store.saveAdminOrder(order);
+      const saved = await Store.saveAdminOrder(order);
+      const emailResult = await sendAutomaticStatusEmail(saved, oldStatus);
       renderOrders(document.getElementById("adminMain"));
-      savedToast();
+      savedToast(statusEmailToast("Estado guardado", emailResult));
     }
     if (event.target.id === "productImageFile" && event.target.files[0]) {
       adminState.productImage = await readImage(event.target.files[0]);
@@ -1331,6 +1374,7 @@
       settings.whatsapp = document.getElementById("settingWhatsapp").value.trim();
       settings.orderNotificationEmail = document.getElementById("settingOrderNotificationEmail").value.trim();
       settings.orderNotificationFrom = document.getElementById("settingOrderNotificationFrom").value.trim();
+      settings.autoStatusEmails = document.getElementById("settingAutoStatusEmails").checked;
       settings.preparationTime = document.getElementById("settingPreparationTime").value.trim();
       settings.deliveryTime = document.getElementById("settingDeliveryTime").value.trim();
       settings.pickupAddress = document.getElementById("settingPickup").value.trim();

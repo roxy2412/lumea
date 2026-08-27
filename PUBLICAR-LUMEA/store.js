@@ -30,6 +30,7 @@
     ordersEmail: ADMIN_EMAIL,
     orderNotificationEmail: ADMIN_EMAIL,
     orderNotificationFrom: "LUMEA <pedidos@mail.vixo.com.mx>",
+    autoStatusEmails: false,
     categoryVisibility: {},
     categoryLabels: {},
     cancelHours: 24,
@@ -84,6 +85,12 @@
       name: "Pedido listo para entrega",
       subject: "Tu pedido {{pedido}} ya está listo para entrega",
       body: "Hola {{nombre}},\n\n¡Tu pedido ya llegó!\n\nEl pedido {{pedido}} se encuentra en La Habana y está listo para coordinar su entrega.\n\nProductos incluidos\n\n{{productos}}\n\nEntrega: {{entrega}}\nTotal confirmado: {{total}}\nSaldo pendiente: {{saldo}}\n\nSi ya recibiste instrucciones, por favor ten a la mano el número de pedido.\n\nGracias por permitirnos ser parte de tu emprendimiento.\n\nCon cariño,\nEquipo LUMEA\nCosmética natural"
+    },
+    {
+      id: "actualizacion-estado",
+      name: "Actualización de estado",
+      subject: "Actualización de tu pedido {{pedido}} en LUMEA",
+      body: "Hola {{nombre}},\n\nQueremos avisarte que tu pedido {{pedido}} cambió de estado.\n\nEstado actual: {{estado}}\n\nProductos incluidos\n\n{{productos}}\n\nEntrega: {{entrega}}\nTotal confirmado: {{total}}\nPago enviado: {{pago}}\nSaldo pendiente: {{saldo}}\n\nSi tienes alguna duda, responde este correo o escríbenos por WhatsApp.\n\nGracias por confiar en LUMEA.\n\nCon cariño,\nEquipo LUMEA\nCosmética natural"
     }
   ];
 
@@ -417,6 +424,12 @@
           if (!replacement || !legacyMarkers.some((marker) => String(template.body || "").includes(marker))) return template;
           upgraded = true;
           return replacement;
+        });
+        defaultEmailTemplates.forEach((template) => {
+          if (!templates.some((item) => item.id === template.id)) {
+            templates.push(template);
+            upgraded = true;
+          }
         });
         write(KEYS.emailTemplates, templates);
         if (upgraded) await persistRemote(KEYS.emailTemplates, templates, "/api/admin/email-templates");
