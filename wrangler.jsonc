@@ -26,6 +26,6 @@
   "vars": {
     "ADMIN_EMAIL": "lumea.cosmeticnatural@gmail.com",
     "ORDER_NOTIFICATION_EMAIL": "lumea.cosmeticnatural@gmail.com",
-    "ORDER_NOTIFICATION_FROM": "LUMEA <pedidos@vixo.com.mx>"
+    "ORDER_NOTIFICATION_FROM": "LUMEA <pedidos@mail.vixo.com.mx>"
   }
 }

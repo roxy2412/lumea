@@ -341,6 +341,8 @@
           <label><input id="selectAllOrders" type="checkbox" /> Seleccionar todos</label>
           <select id="bulkOrderStatus" aria-label="Estado para pedidos seleccionados">${statusOptions}</select>
           <button class="admin-secondary" data-bulk-order-status>Aplicar estado</button>
+          <button class="admin-secondary" data-bulk-order-archive>${adminState.orderView === "archived" ? "Restaurar seleccionados" : "Archivar seleccionados"}</button>
+          <button class="admin-secondary danger" data-bulk-order-delete>Eliminar seleccionados</button>
           <select id="bulkOrderTemplate" aria-label="Formato para pedidos seleccionados">${templateOptions}</select>
           <button class="admin-primary" data-bulk-order-email>Abrir correo en Gmail</button>
           <small id="bulkOrderError"></small>
@@ -806,21 +808,47 @@
         error.textContent = "Selecciona al menos un pedido.";
       } else {
         const status = document.getElementById("bulkOrderStatus").value;
-        const selectedIds = new Set(selected.map((order) => order.id));
-        const orders = Store.getOrders();
-        orders.forEach((order) => {
-          if (selectedIds.has(order.id)) {
-            order.status = status;
-            order.updatedAt = new Date().toISOString();
-            if (status === "Cancelado") {
-              order.cancelledAt = order.updatedAt;
-              order.cancellationRefund = Store.cancellationRefundable(order);
-            }
+        await Promise.all(selected.map((order) => {
+          const updated = {
+            ...order,
+            status,
+            updatedAt: new Date().toISOString()
+          };
+          if (status === "Cancelado") {
+            updated.cancelledAt = updated.updatedAt;
+            updated.cancellationRefund = Store.cancellationRefundable(order);
           }
-        });
-        await Store.setOrders(orders);
+          return Store.saveAdminOrder(updated);
+        }));
         renderOrders(document.getElementById("adminMain"));
         savedToast(`Estado aplicado a ${selected.length} pedido${selected.length === 1 ? "" : "s"}`);
+      }
+    }
+    if (event.target.closest("[data-bulk-order-archive]")) {
+      const selected = selectedOrders();
+      const error = document.getElementById("bulkOrderError");
+      if (!selected.length) {
+        error.textContent = "Selecciona al menos un pedido.";
+      } else {
+        const archive = adminState.orderView !== "archived";
+        await Promise.all(selected.map((order) => Store.saveAdminOrder({
+          ...order,
+          archived: archive,
+          updatedAt: new Date().toISOString()
+        })));
+        renderOrders(document.getElementById("adminMain"));
+        savedToast(`${archive ? "Archivados" : "Restaurados"} ${selected.length} pedido${selected.length === 1 ? "" : "s"}`);
+      }
+    }
+    if (event.target.closest("[data-bulk-order-delete]")) {
+      const selected = selectedOrders();
+      const error = document.getElementById("bulkOrderError");
+      if (!selected.length) {
+        error.textContent = "Selecciona al menos un pedido.";
+      } else if (confirm(`¿Eliminar definitivamente ${selected.length} pedido${selected.length === 1 ? "" : "s"}? Esta acción no se puede deshacer.`)) {
+        await Promise.all(selected.map((order) => Store.deleteOrder(order.id)));
+        renderOrders(document.getElementById("adminMain"));
+        savedToast(`Eliminados ${selected.length} pedido${selected.length === 1 ? "" : "s"}`);
       }
     }
     if (event.target.closest("[data-bulk-order-email]")) {
